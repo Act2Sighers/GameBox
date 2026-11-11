@@ -1,4 +1,4 @@
-"""Round 1 drafts: 3 characters x 3 formats. Fill-only grids; outline is added automatically.
+"""Reference samples (approved in round 1): 3 characters x 3 formats. Fill-only grids; outline is added automatically.
 
 Legend: . transparent / H hair / h hair shade / j hair highlight / S skin / E eye / e eye (lower)
         W white cloth / C main cloth / c cloth shade / R accent / D bottoms / K shoes
@@ -16,7 +16,6 @@ PALETTES = {
     "3": {"H": "#dcdfeb", "h": "#a9aec6", "j": "#ffffff", "S": "#f7dcc6", "E": "#2f3a4a", "e": "#4f7a8a",
           "W": "#f6f4ee", "C": "#5aa564", "c": "#3f7d4b", "R": "#f6f4ee", "D": "#3f5f9a", "K": "#e8e8ee"},
 }
-OUTLINE = "#1d1826"
 
 SPRITES = {}
 
