@@ -126,7 +126,7 @@ body {
   </button>
   <div id="view">
     <div id="screen">
-      <canvas id="game" width="312" height="288" aria-label="店内"></canvas>
+      <canvas id="game" width="312" height="288" aria-label="お店と工房"></canvas>
       <div id="msg" hidden></div>
     </div>
   </div>
@@ -197,33 +197,54 @@ function layer(w, h) { const c = document.createElement("canvas"); c.width = w; 
 function rect(g, x, y, w, h, color) { g.fillStyle = color; g.fillRect(x, y, w, h); }
 function box(g, x, y, w, h, fill, line = PIXEL_OUTLINE) { rect(g, x, y, w, h, line); rect(g, x + 1, y + 1, w - 2, h - 2, fill); }
 
-// ---------------------------------------------------------------- map (fixed parts only; shelves and the bed are furniture below)
-// # wall  D workshop door  E entrance  K counter  B counter with checkout board
+// ---------------------------------------------------------------- rooms (fixed parts only; shelves, the bed etc. are furniture below)
+// # wall  E entrance  K counter  B counter with checkout board  P passage to the other room
 const T = 24;
-const MAP = [
-  "#############",
-  "#########D###",
-  "#...........#",
-  "#.......K...#",
-  "#.......KKBK#",
-  "#...........#",
-  "#...........#",
-  "#...........#",
-  "#...........#",
-  "#...........#",
-  "#...........#",
-  "######E######",
-];
-const COLS = MAP[0].length, ROWS = MAP.length, W = COLS * T, H = ROWS * T;
-const FIXED_SOLID = new Set(["#", "D", "E", "K", "B"]);
-const tileAt = (tx, ty) => (tx < 0 || ty < 0 || tx >= COLS || ty >= ROWS) ? "#" : MAP[ty][tx];
-
+const ROOMS = {
+  shop: {
+    name: "お店", other: "workshop", spawnX: 11, spawnDir: "left",
+    map: [
+      "#############",
+      "#############",
+      "#...........P",
+      "#.......K...#",
+      "#.......KKBK#",
+      "#...........#",
+      "#...........#",
+      "#...........#",
+      "#...........#",
+      "#...........#",
+      "#...........P",
+      "######E######",
+    ],
+  },
+  workshop: {
+    name: "工房", other: "shop", spawnX: 1, spawnDir: "right",
+    map: [
+      "#############",
+      "#############",
+      "P...........#",
+      "#...........#",
+      "#...........#",
+      "#...........#",
+      "#...........#",
+      "#...........#",
+      "#...........#",
+      "#...........#",
+      "P...........#",
+      "#############",
+    ],
+  },
+};
+const COLS = 13, ROWS = 12, W = COLS * T, H = ROWS * T;
+const FIXED_SOLID = new Set(["#", "E", "K", "B"]);
+const tileAt = (tx, ty, room = world.room) => (tx < 0 || ty < 0 || tx >= COLS || ty >= ROWS) ? "#" : ROOMS[room].map[ty][tx];
 // ---------------------------------------------------------------- time
 // clock = game minutes since day 1, 00:00.  "real": follows the device clock and keeps running while closed.
 // "game": one day per 30 real minutes (30 s while in bed) and stops while the game is closed.
 const DAY = 1440;
 const RATE = { game: DAY / (30 * 60), bed: DAY / 30 }; // game minutes per real second
-const world = { mode: "real", clock: 0, inBed: false, awayMs: null };
+const world = { mode: "real", clock: 0, inBed: false, awayMs: null, room: "shop" };
 const mod = (a, n) => ((a % n) + n) % n;
 const tod = () => mod(world.clock, DAY);
 function realTOD(d = new Date()) { return d.getHours() * 60 + d.getMinutes() + d.getSeconds() / 60 + d.getMilliseconds() / 60000; }
@@ -249,24 +270,35 @@ function setMode(mode) {
 }
 
 // ---------------------------------------------------------------- furniture
-// Shelves and the bed are furniture. Wall shelves and display tables behave the same except `movable`.
+// Everything placed in a room is furniture; types differ only in these settings.
+// rooms = where a movable piece may be carried (a passage to any other room blocks it).
+const BOTH = ["shop", "workshop"];
 const FURNITURE_TYPES = {
   wallShelf: { kind: "shelf", name: "背の高い棚", movable: false, w: 1, h: 1 },
-  table: { kind: "shelf", name: "陳列台", movable: true, w: 1, h: 1 },
+  table: { kind: "shelf", name: "陳列台", movable: true, w: 1, h: 1, rooms: ["shop"] },
+  rack: { kind: "rack", name: "乾燥棚", movable: true, w: 1, h: 1, rooms: BOTH },
+  chest: { kind: "chest", name: "宝箱", movable: true, w: 1, h: 1, rooms: BOTH },
   bed: { kind: "bed", name: "ベッド", movable: false, w: 1, h: 2, exit: { dx: -1, dy: 1, dir: "left" } },
+  cauldron: { kind: "cauldron", name: "大鍋", movable: false, w: 2, h: 2 },
+  step: { kind: "step", name: "足場", movable: false, w: 1, h: 1 },
 };
 function initialFurniture() {
-  const list = [];
-  let no = 0;
-  const add = (type, tx, ty) => {
-    const f = { id: list.length, type, tx, ty, held: false };
-    if (FURNITURE_TYPES[type].kind === "shelf") f.no = ++no;
-    list.push(f);
+  const list = [], count = {};
+  const add = (type, room, tx, ty) => {
+    const kind = FURNITURE_TYPES[type].kind;
+    count[kind] = (count[kind] || 0) + 1;
+    list.push({ id: list.length, type, room, tx, ty, no: count[kind], held: false });
   };
-  for (let x = 1; x <= 4; x++) add("wallShelf", x, 2);
-  for (let x = 2; x <= 5; x++) add("table", x, 6);
-  for (let x = 2; x <= 5; x++) add("table", x, 7);
-  add("bed", 11, 8); // will move to the workshop once it exists
+  // ids 0-12 keep the order of earlier saves
+  for (let x = 1; x <= 4; x++) add("wallShelf", "shop", x, 2);
+  for (let x = 2; x <= 5; x++) add("table", "shop", x, 6);
+  for (let x = 2; x <= 5; x++) add("table", "shop", x, 7);
+  add("bed", "workshop", 11, 2);
+  add("chest", "shop", 9, 7);
+  add("chest", "workshop", 2, 4);
+  for (let x = 8; x <= 10; x++) add("rack", "workshop", x, 8);
+  add("cauldron", "workshop", 5, 5);
+  add("step", "workshop", 4, 6);
   return list;
 }
 let furniture = initialFurniture();
@@ -274,106 +306,156 @@ let held = null; // furniture being carried
 
 const typeOf = f => FURNITURE_TYPES[f.type];
 const covers = (f, tx, ty) => tx >= f.tx && tx < f.tx + typeOf(f).w && ty >= f.ty && ty < f.ty + typeOf(f).h;
-const furnitureAt = (tx, ty) => furniture.find(f => !f.held && covers(f, tx, ty)) || null;
+const furnitureAt = (tx, ty, room = world.room) => furniture.find(f => !f.held && f.room === room && covers(f, tx, ty)) || null;
 const isMovable = f => typeOf(f).movable;
-const solidAt = (tx, ty) => FIXED_SOLID.has(tileAt(tx, ty)) || !!furnitureAt(tx, ty);
-// fixed obstacles = map solids + furniture that cannot be moved
-const fixedAt = (tx, ty) => FIXED_SOLID.has(tileAt(tx, ty)) || furniture.some(f => !isMovable(f) && covers(f, tx, ty));
+// a passage counts as a wall while carrying something that may not leave this room
+const passageBlocked = (tx, ty) => tileAt(tx, ty) === "P" && !!held && !(typeOf(held).rooms || []).includes(ROOMS[world.room].other);
+const solidAt = (tx, ty) => FIXED_SOLID.has(tileAt(tx, ty)) || !!furnitureAt(tx, ty) || passageBlocked(tx, ty);
+// fixed obstacles = room solids + furniture that cannot be moved
+const fixedAt = (tx, ty, room) => FIXED_SOLID.has(tileAt(tx, ty, room)) || furniture.some(f => f.room === room && !isMovable(f) && covers(f, tx, ty));
 
 // Tiles where movable furniture may stand: floor with no fixed obstacle in the 8 surrounding tiles.
-let placeable = null;
+const placeable = {};
 function computePlaceable() {
-  placeable = [];
-  for (let ty = 0; ty < ROWS; ty++) {
-    placeable.push([]);
-    for (let tx = 0; tx < COLS; tx++) {
-      let ok = !fixedAt(tx, ty);
-      for (let dy = -1; dy <= 1 && ok; dy++) for (let dx = -1; dx <= 1 && ok; dx++) if (fixedAt(tx + dx, ty + dy)) ok = false;
-      placeable[ty].push(ok);
+  for (const room of Object.keys(ROOMS)) {
+    const grid = placeable[room] = [];
+    for (let ty = 0; ty < ROWS; ty++) {
+      grid.push([]);
+      for (let tx = 0; tx < COLS; tx++) {
+        let ok = !fixedAt(tx, ty, room) && tileAt(tx, ty, room) !== "P";
+        for (let dy = -1; dy <= 1 && ok; dy++) for (let dx = -1; dx <= 1 && ok; dx++) if (fixedAt(tx + dx, ty + dy, room)) ok = false;
+        grid[ty].push(ok);
+      }
     }
   }
 }
 computePlaceable();
-
 // ---------------------------------------------------------------- what the cursor points at
 const STATIC_TARGETS = {
   B: { kind: "board", name: "会計ボード" },
-  D: { kind: "workshop", name: "工房へのドア" },
   E: { kind: "entrance", name: "玄関のドア" },
 };
+function furnitureName(f) {
+  const tp = typeOf(f);
+  if (tp.kind === "shelf") return `商品棚 ${f.no}`;
+  if (tp.kind === "rack") return `乾燥棚 ${f.no}`;
+  return tp.name;
+}
+function heldLabel(f) { return f.type === "table" ? `陳列台（商品棚 ${f.no}）` : furnitureName(f); }
 function targetAt(tx, ty) {
   const f = furnitureAt(tx, ty);
-  if (f && typeOf(f).kind === "shelf") return { kind: "shelf", name: `商品棚 ${f.no}`, furniture: f };
-  if (f) return { kind: typeOf(f).kind, name: typeOf(f).name, furniture: f };
+  if (f) return { kind: typeOf(f).kind, name: furnitureName(f), furniture: f };
   return STATIC_TARGETS[tileAt(tx, ty)] || null;
 }
 
 // Placeholder handlers: later rounds fill these in.
 const ACTIONS = {
   shelf: t => [`${t.name}を調べた。`, `（${typeOf(t.furniture).name}。まだ商品は並んでいない）`],
+  rack: t => [`${t.name}を調べた。`, "（まだ何も干していない）"],
+  chest: t => [`${t.name}を開けた。`, "（中は空っぽだ）"],
+  cauldron: t => [`${t.name}を覗き込んだ。`, "（緑色の何かがぐつぐつと煮えている……）"],
+  step: t => [`${t.name}を調べた。`, "（大鍋を覗き込むための足場だ）"],
   bed: t => [`${t.name}を調べた。`, "（ふかふかの布団。中央のボタンで布団に入れる）"],
   board: t => [`${t.name}を調べた。`, "（会計はまだできない）"],
-  workshop: t => [`${t.name}を調べた。`, "（工房にはまだ入れない）"],
   entrance: t => [`${t.name}を調べた。`, "（まだお客さんは来ない）"],
 };
-
-// ---------------------------------------------------------------- shop art (drawn at 1x)
+// ---------------------------------------------------------------- room art (drawn at 1x)
 const C = {
-  floorA: "#a87b4f", floorB: "#a07349", floorLine: "#86603c",
   wallTop: "#3b2a22", wallEdge: "#5a4030", plaster: "#cdb894", plasterShade: "#b9a27e",
   wood: "#7a4e2e", woodDark: "#5e3b22", woodDeep: "#3e2618", woodLight: "#9a6a40", woodTop: "#b78550", woodTopEdge: "#cf9d63",
-  glass: "#9fc4d8", glassHi: "#d6ecf5", gold: "#e3b341", velvet: "#5b4479", velvetHi: "#7a62a0",
+  glass: "#9fc4d8", glassHi: "#d6ecf5", gold: "#e3b341", goldDark: "#a8792a", velvet: "#5b4479", velvetHi: "#7a62a0",
   slate: "#2f3b36", chalk: "#d9e3dc", rug: "#7a3d4a", rugHi: "#a85a64",
   sheet: "#efe9df", sheetShade: "#cfc6b6", pillow: "#fbf8f2", quilt: "#4f6fae", quiltDark: "#3d5690", quiltHi: "#7393cf",
+  stone: "#6f6a74", stoneHi: "#86808b", stoneLo: "#5c5762", mortar: "#45404b",
+  herb: "#5d8a4e", herbHi: "#86b56a", lavender: "#8a6bb0", lavenderHi: "#b39ad6", root: "#b07a45",
   ng: "#e0303c",
 };
+const FLOORS = {
+  shop: { a: "#a87b4f", b: "#a07349", line: "#86603c" },
+  workshop: { a: "#7b5638", b: "#734f33", line: "#5a3d27" },
+};
 
-function drawBackground() {
+function drawBackground(room) {
   const c = layer(W, H), g = c.getContext("2d");
+  const map = ROOMS[room].map, at = (tx, ty) => tileAt(tx, ty, room);
   // floor planks: 6px rows with staggered joints
+  const fl = FLOORS[room];
   for (let y = 0; y < H; y += 6) {
     const r = y / 6;
-    rect(g, 0, y, W, 6, r % 2 ? C.floorA : C.floorB);
-    rect(g, 0, y, W, 1, C.floorLine);
-    for (let x = (r * 37) % 48; x < W; x += 48) rect(g, x, y, 1, 6, C.floorLine);
+    rect(g, 0, y, W, 6, r % 2 ? fl.a : fl.b);
+    rect(g, 0, y, W, 1, fl.line);
+    for (let x = (r * 37) % 48; x < W; x += 48) rect(g, x, y, 1, 6, fl.line);
   }
-  // back wall (rows 0-1): trim, plaster, wainscot, baseboard
-  rect(g, 0, 0, W, 2 * T, C.plaster);
-  for (let x = 0; x < W; x += 8) rect(g, x, 4, 1, 26, C.plasterShade);
-  rect(g, 0, 0, W, 4, C.wallTop);
-  rect(g, 0, 30, W, 18, C.wood);
-  rect(g, 0, 30, W, 1, C.woodLight);
-  for (let x = 6; x < W; x += 24) { rect(g, x, 33, 12, 1, C.woodDark); rect(g, x, 33, 1, 10, C.woodDark); rect(g, x, 43, 13, 1, C.woodLight); rect(g, x + 12, 33, 1, 11, C.woodLight); }
-  rect(g, 0, 44, W, 4, C.woodDeep);
-  // window frame between shelves and door
+  if (room === "shop") {
+    // back wall: trim, plaster, wainscot, baseboard
+    rect(g, 0, 0, W, 2 * T, C.plaster);
+    for (let x = 0; x < W; x += 8) rect(g, x, 4, 1, 26, C.plasterShade);
+    rect(g, 0, 0, W, 4, C.wallTop);
+    rect(g, 0, 30, W, 18, C.wood);
+    rect(g, 0, 30, W, 1, C.woodLight);
+    for (let x = 6; x < W; x += 24) { rect(g, x, 33, 12, 1, C.woodDark); rect(g, x, 33, 1, 10, C.woodDark); rect(g, x, 43, 13, 1, C.woodLight); rect(g, x + 12, 33, 1, 11, C.woodLight); }
+    rect(g, 0, 44, W, 4, C.woodDeep);
+  } else {
+    // back wall: stone blocks, a beam with drying herbs, a shelf of jars
+    rect(g, 0, 0, W, 2 * T, C.stone);
+    for (let r = 0; r < 5; r++) {
+      const y = 4 + r * 8;
+      rect(g, 0, y, W, 1, C.mortar);
+      for (let x = (r % 2) * 9 - 9; x < W; x += 18) {
+        rect(g, x, y + 1, 1, 7, C.mortar);
+        rect(g, x + 1, y + 1, 16, 1, C.stoneHi);
+        rect(g, x + 1, y + 7, 16, 1, C.stoneLo);
+      }
+    }
+    rect(g, 0, 0, W, 4, "#2f2a33");
+    rect(g, 0, 44, W, 4, C.woodDeep);
+    rect(g, 196, 5, 112, 3, C.woodDark); rect(g, 196, 5, 112, 1, C.woodLight);
+    const bundles = [C.herb, C.lavender, C.root, C.herb, C.lavender, C.herb, C.root, C.lavender, C.herb];
+    bundles.forEach((col, i) => {
+      const x = 202 + i * 12;
+      rect(g, x + 2, 8, 1, 3, C.woodDeep);
+      rect(g, x, 11, 5, 2, col); rect(g, x + 1, 13, 3, 3, col); rect(g, x + 2, 16, 1, 2, col);
+      rect(g, x + 1, 11, 1, 1, col === C.lavender ? C.lavenderHi : col === C.root ? "#d39a5e" : C.herbHi);
+    });
+    rect(g, 18, 25, 84, 3, C.woodDark); rect(g, 18, 25, 84, 1, C.woodLight);
+    rect(g, 22, 28, 2, 4, C.woodDeep); rect(g, 96, 28, 2, 4, C.woodDeep);
+    const jars = [["#7fc0d8", 5, 7], ["#c86a8a", 4, 9], ["#e0c060", 6, 6], ["#6aa86a", 4, 8], ["#9a7ac8", 5, 10], ["#d8834a", 4, 7]];
+    let jx = 24;
+    for (const [col, w, h] of jars) {
+      box(g, jx, 25 - h, w + 2, h, col);
+      rect(g, jx + 1, 25 - h + 1, 1, h - 3, "#ffffff80");
+      rect(g, jx + 1, 25 - h - 2, w, 2, C.woodLight);
+      jx += w + 6;
+    }
+  }
+  // window frame (the view inside is drawn every frame by drawWindow)
   const wx = 5 * T + 10, wy = 7;
-  box(g, wx, wy, 40, 22, C.glass, C.wallTop); // the view inside is drawn every frame (drawWindow)
-  rect(g, wx - 2, wy + 22, 44, 3, C.woodDark);
-  // workshop door (D)
-  MAP.forEach((row, ty) => [...row].forEach((ch, tx) => {
-    if (ch !== "D") return;
-    const x = tx * T + 3, y = 12;
-    rect(g, x - 1, y - 1, 20, 37, C.wallTop);
-    rect(g, x + 2, y - 3, 14, 3, C.wallTop);
-    rect(g, x, y, 18, 36, C.wood);
-    rect(g, x + 3, y - 2, 12, 2, C.wood);
-    rect(g, x + 3, y + 4, 5, 12, C.woodDark); rect(g, x + 10, y + 4, 5, 12, C.woodDark);
-    rect(g, x + 3, y + 19, 5, 12, C.woodDark); rect(g, x + 10, y + 19, 5, 12, C.woodDark);
-    rect(g, x + 14, y + 17, 2, 2, C.gold);
-    rect(g, x + 4, y - 9, 10, 5, C.woodDeep); rect(g, x + 6, y - 8, 6, 1, C.gold); rect(g, x + 7, y - 6, 4, 1, C.gold);
-  }));
+  box(g, wx, wy, 40, 22, C.glass, C.wallTop);
+  rect(g, wx - 2, wy + 22, 44, 3, room === "shop" ? C.woodDark : C.stoneLo);
   // side and front walls (seen from above)
   const wallTile = (tx, ty) => {
     rect(g, tx * T, ty * T, T, T, C.wallTop);
-    const inner = (dx, dy) => tileAt(tx + dx, ty + dy) !== "#";
+    const inner = (dx, dy) => at(tx + dx, ty + dy) !== "#";
     if (inner(1, 0)) rect(g, tx * T + T - 3, ty * T, 3, T, C.wallEdge);
     if (inner(-1, 0)) rect(g, tx * T, ty * T, 3, T, C.wallEdge);
     if (inner(0, -1)) rect(g, tx * T, ty * T, T, 3, C.wallEdge);
   };
-  for (let ty = 2; ty < ROWS; ty++) for (let tx = 0; tx < COLS; tx++) if (MAP[ty][tx] === "#") wallTile(tx, ty);
-  for (let ty = 0; ty < 2; ty++) { wallTile(0, ty); wallTile(COLS - 1, ty); }
+  for (let ty = 2; ty < ROWS; ty++) for (let tx = 0; tx < COLS; tx++) if (map[ty][tx] === "#") wallTile(tx, ty);
+  // the back wall face continues over a passage in the top row
+  for (const tx of [0, COLS - 1]) if (at(tx, 2) !== "P") { wallTile(tx, 0); wallTile(tx, 1); }
+  // passages fade into the dark beyond the edge of the room
+  for (let ty = 0; ty < ROWS; ty++) for (const tx of [0, COLS - 1]) {
+    if (at(tx, ty) !== "P") continue;
+    const outward = tx === 0 ? -1 : 1;
+    for (let i = 0; i < 4; i++) {
+      g.globalAlpha = 0.18 + i * 0.16;
+      const x = tx * T + (outward > 0 ? 8 + i * 4 : 12 - i * 4);
+      rect(g, x, ty * T, 4, T, "#120e14");
+    }
+    g.globalAlpha = 1;
+  }
   // entrance (E): double door seen from above + rug inside
-  MAP.forEach((row, ty) => [...row].forEach((ch, tx) => {
+  map.forEach((row, ty) => [...row].forEach((ch, tx) => {
     if (ch !== "E") return;
     const x = tx * T, y = ty * T;
     rect(g, x, y, T, T, C.wallTop);
@@ -437,11 +519,117 @@ const FURNITURE_ART = {
     rect(g, 6, 5, 12, 1, C.velvetHi);
     return { img: c, rise: 4 };
   })(),
+  rack: (() => {
+    // drying rack: two posts, a top bar with hanging bundles, two slatted trays with herbs laid out
+    const c = layer(T, 42), g = c.getContext("2d");
+    box(g, 1, 0, 4, 42, C.wood); box(g, 19, 0, 4, 42, C.wood);
+    rect(g, 2, 1, 2, 1, C.woodLight); rect(g, 20, 1, 2, 1, C.woodLight);
+    box(g, 1, 3, 22, 3, C.woodLight);
+    [[7, C.herb, C.herbHi], [12, C.lavender, C.lavenderHi], [16, C.root, "#d39a5e"]].forEach(([x, col, hi]) => {
+      rect(g, x, 6, 1, 2, C.woodDeep);
+      box(g, x - 2, 8, 5, 5, col); rect(g, x - 1, 9, 1, 1, hi); rect(g, x, 13, 1, 2, col);
+    });
+    for (const ty of [19, 31]) {
+      box(g, 1, ty, 22, 5, C.woodDark);
+      for (let x = 3; x < 21; x += 3) rect(g, x, ty + 1, 1, 3, C.woodDeep);
+    }
+    rect(g, 4, 18, 4, 2, C.herb); rect(g, 9, 17, 5, 3, C.herbHi); rect(g, 15, 18, 4, 2, C.herb);
+    rect(g, 5, 30, 3, 2, C.lavender); rect(g, 10, 29, 4, 3, C.root); rect(g, 15, 30, 4, 2, C.lavenderHi);
+    box(g, 0, 38, 6, 4, C.woodDark); box(g, 18, 38, 6, 4, C.woodDark);
+    return { img: c, rise: 42 - T };
+  })(),
+  chest: (() => {
+    // treasure chest: rounded lid, gold bands and lock
+    const c = layer(T, 26), g = c.getContext("2d");
+    box(g, 2, 10, 20, 15, "#8a5a30");
+    rect(g, 3, 11, 18, 1, "#a06a3a"); rect(g, 3, 20, 18, 4, "#6e4626");
+    box(g, 2, 3, 20, 9, "#9a6636"); rect(g, 3, 2, 18, 1, PIXEL_OUTLINE); rect(g, 4, 1, 16, 1, PIXEL_OUTLINE);
+    rect(g, 4, 2, 16, 1, "#b47a44"); rect(g, 3, 4, 18, 1, "#b47a44");
+    for (const x of [5, 17]) { rect(g, x, 2, 2, 22, C.gold); rect(g, x + 1, 3, 1, 20, C.goldDark); }
+    rect(g, 2, 11, 20, 1, PIXEL_OUTLINE);
+    box(g, 9, 9, 6, 7, C.gold, C.goldDark); rect(g, 11, 12, 2, 2, PIXEL_OUTLINE);
+    return { img: c, rise: 2 };
+  })(),
+  step: (() => {
+    // two-tread step stool for peering into the cauldron
+    const c = layer(T, T + 2), g = c.getContext("2d");
+    box(g, 4, 0, 16, 10, C.woodTop); rect(g, 5, 1, 14, 1, C.woodTopEdge);
+    box(g, 4, 9, 16, 5, C.woodDark);
+    box(g, 2, 12, 20, 9, C.woodTop); rect(g, 3, 13, 18, 1, C.woodTopEdge);
+    box(g, 2, 20, 20, 6, C.woodDark); rect(g, 4, 22, 2, 3, C.woodDeep); rect(g, 18, 22, 2, 3, C.woodDeep);
+    return { img: c, rise: 2 };
+  })(),
   bed: { img: makeBed(false), occupiedImg: makeBed(true), rise: 12 },
+  cauldron: { img: null, rise: 10 }, // drawn every frame (drawCauldron)
 };
 function furnitureImage(f) {
   const art = FURNITURE_ART[f.type];
   return f.type === "bed" && world.inBed ? art.occupiedImg : art.img;
+}
+
+// The cauldron: a dark pot-bellied kettle on three legs over embers, with a bubbling brew and steam.
+const CAULDRON = (() => {
+  const c = layer(2 * T, 2 * T + 10), g = c.getContext("2d");
+  const cx = 24, hw = y => {
+    let w = 16 + 5 * Math.sin(Math.PI * (y - 17) / 34);
+    if (y > 46) w -= (y - 46) * 1.6;
+    return Math.round(w);
+  };
+  for (const [x, w] of [[9, 4], [22, 4], [35, 4]]) box(g, x, 48, w, 9, "#26242e");
+  for (let y = 17; y <= 52; y++) { const w = hw(y); rect(g, cx - w - 1, y, 2 * w + 2, 1, PIXEL_OUTLINE); }
+  rect(g, cx - hw(52) + 1, 53, 2 * hw(52) - 2, 1, PIXEL_OUTLINE);
+  for (let y = 18; y <= 52; y++) {
+    const w = hw(y);
+    rect(g, cx - w, y, 2 * w, 1, "#2b2935");
+    rect(g, cx + w - 4, y, 4, 1, "#1d1b24");
+    if (y >= 24 && y <= 42) rect(g, cx - w + 3, y, 3, 1, "#45424f");
+    if (y >= 26 && y <= 30) rect(g, cx - w + 4, y, 1, 1, "#66637a");
+  }
+  rect(g, cx - 16, 44, 32, 1, "#3a3845"); // band
+  // rim (top view ellipse) and the dark opening
+  const ell = (rx, ry, cy, col) => { for (let dy = -ry; dy <= ry; dy++) { const w = Math.round(rx * Math.sqrt(1 - (dy / (ry + 0.5)) ** 2)); rect(g, cx - w, cy + dy, 2 * w, 1, col); } };
+  ell(20, 7, 16, PIXEL_OUTLINE);
+  ell(19, 6, 16, "#3d3b49");
+  ell(19, 1, 21, "#3d3b49");
+  rect(g, cx - 14, 11, 10, 1, "#57546a");
+  ell(15, 4, 16, "#15131a");
+  return { img: c, cx, cy: 16 };
+})();
+function drawCauldron(x, y, time) {
+  const { cx, cy } = CAULDRON;
+  // embers between the legs
+  for (let i = 0; i < 7; i++) {
+    const f = (Math.sin(time * 9 + i * 1.7) + 1) / 2;
+    ctx.fillStyle = f > 0.6 ? "#ffd36a" : f > 0.3 ? "#f08a3a" : "#a8402a";
+    ctx.fillRect(x + 14 + i * 3, y + 54 - Math.round(f * 2), 2, 1 + Math.round(f * 2));
+  }
+  ctx.drawImage(CAULDRON.img, x, y);
+  // brew surface
+  for (let dy = -3; dy <= 3; dy++) {
+    const w = Math.round(14 * Math.sqrt(1 - (dy / 3.6) ** 2));
+    ctx.fillStyle = dy <= -2 ? "#2f7a45" : dy >= 2 ? "#3f9655" : "#4aa860";
+    ctx.fillRect(x + cx - w, y + cy + dy, 2 * w, 1);
+  }
+  ctx.fillStyle = "#7fd88a";
+  ctx.fillRect(x + cx - 8 + Math.round(Math.sin(time * 1.3) * 3), y + cy - 1, 6, 1);
+  // bubbles: grow, pop into a ring, vanish
+  for (let i = 0; i < 6; i++) {
+    const period = 0.9 + i * 0.23, k = time / period + i * 0.37, cycle = Math.floor(k), p = k - cycle;
+    const seed = Math.sin(cycle * 12.9898 + i * 78.233) * 43758.5453;
+    const r1 = seed - Math.floor(seed), r2 = (seed * 7.13) - Math.floor(seed * 7.13);
+    const bx = x + cx - 11 + Math.round(r1 * 21), by = y + cy - 2 + Math.round(r2 * 4);
+    if (p < 0.55) { ctx.fillStyle = "#9ff09a"; ctx.fillRect(bx, by, 1, 1); }
+    else if (p < 0.8) { ctx.fillStyle = "#c8ffbe"; ctx.fillRect(bx, by - 1, 2, 2); }
+    else if (p < 0.92) { ctx.fillStyle = "#c8ffbe"; ctx.fillRect(bx - 1, by - 1, 1, 1); ctx.fillRect(bx + 2, by - 1, 1, 1); ctx.fillRect(bx, by - 2, 2, 1); }
+  }
+  // steam
+  for (let i = 0; i < 4; i++) {
+    const p = (time * 0.45 + i / 4) % 1;
+    ctx.globalAlpha = 0.45 * (1 - p);
+    ctx.fillStyle = "#e8f0ea";
+    ctx.fillRect(x + cx - 9 + i * 6 + Math.round(Math.sin(time * 2 + i) * 2), y + cy - 6 - Math.round(p * 16), 2, 1);
+  }
+  ctx.globalAlpha = 1;
 }
 
 function makeCounter() {
@@ -463,9 +651,8 @@ function makeCounter() {
   rect(g, bx + 6, by + 12, 4, 2, C.woodDeep);
   // a small bell beside it
   rect(g, bx + 19, by + 7, 5, 4, C.gold); rect(g, bx + 21, by + 5, 1, 2, C.gold); rect(g, bx + 18, by + 11, 7, 1, C.woodDeep);
-  return { img: c, x: 8 * T, y: 3 * T - up, bottom: 5 * T };
+  return { img: c, x: 8 * T, y: 3 * T - up, bottom: 5 * T, room: "shop" };
 }
-
 // ---------------------------------------------------------------- time of day: sky, light, room filter
 const hex = s => [1, 3, 5].map(i => parseInt(s.slice(i, i + 2), 16));
 const smooth = t => t * t * (3 - 2 * t);
@@ -568,7 +755,7 @@ function moveAxis(dx, dy) {
   while (moved < dist) {
     const s = Math.min(1, dist - moved) * step;
     const nx = hero.x + (dx ? s : 0), ny = hero.y + (dy ? s : 0);
-    if (blocked(nx, ny)) break;
+    if (blocked(nx, ny)) { if (boxTiles(nx, ny, passageBlocked)) warnPassage(); break; }
     hero.x = nx; hero.y = ny; moved += Math.abs(s);
   }
 }
@@ -579,7 +766,7 @@ function currentTarget() { const [cx, cy] = cursorTile(); return targetAt(cx, cy
 
 // Can the carried furniture go down on this tile right now?
 function canPlaceAt(tx, ty) {
-  if (!placeable[ty]?.[tx] || furnitureAt(tx, ty)) return false;
+  if (!placeable[world.room][ty]?.[tx] || furnitureAt(tx, ty)) return false;
   return !boxTiles(hero.x, hero.y, (x, y) => x === tx && y === ty); // not on top of the hero
 }
 
@@ -617,7 +804,7 @@ function contextAction() {
   } else if (mode === "place") {
     const [cx, cy] = cursorTile();
     if (!canPlaceAt(cx, cy)) { say("ここには置けない。", "壁やカウンターなど動かせないものの隣（赤いマス）や、ふさがっているマスには置けない"); return; }
-    held.tx = cx; held.ty = cy; held.held = false; held = null; flash = 0.25; saveSoon();
+    held.room = world.room; held.tx = cx; held.ty = cy; held.held = false; held = null; flash = 0.25; saveSoon();
   } else if (mode === "bedIn") {
     world.inBed = true; msg.hidden = true; msgTimer = 0; saveSoon();
   } else if (mode === "bedOut") {
@@ -628,10 +815,26 @@ function contextAction() {
 }
 function placeHeroAtBedExit() {
   const b = bed(), ex = FURNITURE_TYPES.bed.exit;
+  world.room = b.room;
   hero.x = (b.tx + ex.dx + 0.5) * T; hero.y = (b.ty + ex.dy + 1) * T - 6;
   hero.dir = ex.dir; hero.faceRight = ex.dir === "right";
 }
 
+// Stepping onto a passage moves the hero to the other room, out of the passage on the same row.
+let fade = 0, warnedAt = -1e9;
+function enterRoom(room, ty) {
+  const r = ROOMS[room];
+  world.room = room;
+  hero.x = (r.spawnX + 0.5) * T; hero.y = (ty + 1) * T - 6;
+  hero.dir = r.spawnDir; hero.faceRight = r.spawnDir === "right";
+  fade = 1; saveSoon();
+}
+function warnPassage() {
+  const now = performance.now();
+  if (now - warnedAt < 2500) return;
+  warnedAt = now;
+  say(`${typeOf(held).name}は${ROOMS[world.room].name}から持ち出せない。`, `${typeOf(held).name}は${(typeOf(held).rooms || []).map(r => ROOMS[r].name).join("・")}でしか使えない`);
+}
 // ---------------------------------------------------------------- input
 const keys = new Set();
 const stickVec = { x: 0, y: 0 };
@@ -722,27 +925,34 @@ optionsEl.addEventListener("pointerdown", e => { if (e.target === optionsEl) clo
 modeButtons.forEach(b => b.addEventListener("click", () => { setMode(b.dataset.mode); renderOptions(); }));
 
 // ---------------------------------------------------------------- saving (this device always; the account too when available)
-const SAVE_KEY = "MagicalToolAtelier.save.v1";
+const SAVE_KEY = "MagicalToolAtelier.save.v1"; // the key stays; the data inside carries its own version
 const cloud = { doc: null, writing: false, lastKey: "" };
 function serialize() {
   const now = Date.now();
   return {
-    v: 1, savedAt: now, lastSeen: now, mode: world.mode, clock: world.clock, inBed: world.inBed,
+    v: 2, savedAt: now, lastSeen: now, mode: world.mode, clock: world.clock, inBed: world.inBed, room: world.room,
     hero: { x: hero.x, y: hero.y, dir: hero.dir, faceRight: hero.faceRight },
-    furniture: furniture.map(f => ({ tx: f.tx, ty: f.ty })), held: held ? held.id : null,
+    furniture: furniture.map(f => ({ room: f.room, tx: f.tx, ty: f.ty })), held: held ? held.id : null,
   };
 }
 function applySave(s) {
-  if (!s || s.v !== 1) return false;
+  if (!s || (s.v !== 1 && s.v !== 2)) return false;
   const now = Date.now();
-  if (Array.isArray(s.furniture) && s.furniture.length === furniture.length) {
-    s.furniture.forEach((d, i) => Object.assign(furniture[i], { tx: d.tx, ty: d.ty, held: false }));
+  furniture = initialFurniture();
+  if (Array.isArray(s.furniture)) {
+    // version 1 (one room): only the 12 shop shelves keep their places; everything else starts at its default
+    const keep = s.v === 1 ? 12 : furniture.length;
+    s.furniture.slice(0, keep).forEach((d, i) => {
+      if (furniture[i] && d) Object.assign(furniture[i], { tx: d.tx, ty: d.ty, room: d.room || "shop" });
+    });
   }
-  held = s.held != null && furniture[s.held] ? furniture[s.held] : null;
+  held = s.held != null && s.held < (s.v === 1 ? 12 : furniture.length) && furniture[s.held] ? furniture[s.held] : null;
   if (held) held.held = true;
+  world.room = ROOMS[s.room] ? s.room : "shop";
   if (s.hero) Object.assign(hero, s.hero);
   world.mode = s.mode === "game" ? "game" : "real";
   world.inBed = !!s.inBed;
+  if (world.inBed) world.room = bed().room;
   world.clock = Number(s.clock) || 0;
   world.awayMs = typeof s.lastSeen === "number" ? Math.max(0, now - s.lastSeen) : null;
   lastRealMs = now;
@@ -784,7 +994,7 @@ async function connectCloud(startedFrom) {
     cloud.doc = doc;
     const s = snap?.exists ? snap.data() : null;
     // another device saved more recently than what this one started from: continue from that
-    if (s && s.v === 1 && (s.savedAt || 0) > (startedFrom?.savedAt || 0)) applySave(structuredClone(s));
+    if (s && (s.v === 1 || s.v === 2) && (s.savedAt || 0) > (startedFrom?.savedAt || 0)) applySave(structuredClone(s));
     saveSoon(true);
   } catch (e) { /* stay on device-only saving */ }
 }
@@ -792,7 +1002,7 @@ async function connectCloud(startedFrom) {
 // ---------------------------------------------------------------- loop
 const canvas = document.getElementById("game"), ctx = canvas.getContext("2d");
 canvas.width = W; canvas.height = H; ctx.imageSmoothingEnabled = false;
-const BG = drawBackground(), COUNTER = makeCounter();
+const BGS = { shop: drawBackground("shop"), workshop: drawBackground("workshop") }, COUNTER = makeCounter();
 const clockEl = document.getElementById("clock");
 
 const CONTEXT_LABEL = { lift: "持つ", place: "置く", bedIn: "布団に入る", bedOut: "布団から出る" };
@@ -803,9 +1013,9 @@ function updateUi() {
   const ng = mode === "place" && !canPlaceAt(cx, cy);
   const t = held || world.inBed ? null : currentTarget();
   const chip = world.inBed ? (world.mode === "game" ? "眠っている（時間が早く進んでいる）" : "眠っている")
-    : held ? `陳列台（商品棚 ${held.no}）を運んでいる` : t ? `▶ ${t.name}` : "";
+    : held ? `${heldLabel(held)}を運んでいる` : t ? `▶ ${t.name}` : "";
   const m = tod();
-  const clock = `${Math.floor(world.clock / DAY) + 1}日目 ${String(Math.floor(m / 60)).padStart(2, "0")}:${String(Math.floor(m % 60)).padStart(2, "0")}`;
+  const clock = `${Math.floor(world.clock / DAY) + 1}日目 ${String(Math.floor(m / 60)).padStart(2, "0")}:${String(Math.floor(m % 60)).padStart(2, "0")}　${ROOMS[world.room].name}`;
   const key = `${mode}|${ng}|${chip}|${!!held}|${world.inBed}|${clock}`;
   if (key === lastUi) return;
   lastUi = key;
@@ -831,7 +1041,10 @@ function update(dt) {
     moveAxis(v.x * SPEED * dt, 0);
     moveAxis(0, v.y * SPEED * dt);
     hero.t += dt;
+    const [tx, ty] = heroTile();
+    if (tileAt(tx, ty) === "P") enterRoom(ROOMS[world.room].other, ty);
   } else hero.t = 0;
+  if (fade > 0) fade = Math.max(0, fade - dt * 4);
   if (msgTimer > 0) { msgTimer -= dt; if (msgTimer <= 0.3) msg.style.opacity = Math.max(0, msgTimer / 0.3); if (msgTimer <= 0) msg.hidden = true; }
   if (flash > 0) flash -= dt;
   updateUi();
@@ -854,7 +1067,7 @@ function drawNoPlaceZone() {
   ctx.fillStyle = C.ng;
   ctx.globalAlpha = 0.28;
   for (let ty = 0; ty < ROWS; ty++) for (let tx = 0; tx < COLS; tx++) {
-    if (!FIXED_SOLID.has(tileAt(tx, ty)) && !placeable[ty][tx]) ctx.fillRect(tx * T, ty * T, T, T);
+    if (!FIXED_SOLID.has(tileAt(tx, ty)) && !placeable[world.room][ty][tx]) ctx.fillRect(tx * T, ty * T, T, T);
   }
   ctx.globalAlpha = 1;
 }
@@ -895,20 +1108,23 @@ function drawCursor(time) {
 
 function render(time) {
   const m = tod();
-  ctx.drawImage(BG, 0, 0);
+  ctx.drawImage(BGS[world.room], 0, 0);
   drawWindow(m, time);
   if (held) drawNoPlaceZone();
-  const list = [{ b: COUNTER.bottom, draw: () => ctx.drawImage(COUNTER.img, COUNTER.x, COUNTER.y) }];
+  const list = [];
+  if (COUNTER.room === world.room) list.push({ b: COUNTER.bottom, draw: () => ctx.drawImage(COUNTER.img, COUNTER.x, COUNTER.y) });
   for (const f of furniture) {
-    if (f.held) continue;
-    const art = FURNITURE_ART[f.type];
-    list.push({ b: (f.ty + typeOf(f).h) * T, draw: () => ctx.drawImage(furnitureImage(f), f.tx * T, f.ty * T - art.rise) });
+    if (f.held || f.room !== world.room) continue;
+    const art = FURNITURE_ART[f.type], x = f.tx * T, y = f.ty * T - art.rise;
+    const draw = f.type === "cauldron" ? () => drawCauldron(x, y, time) : () => ctx.drawImage(furnitureImage(f), x, y);
+    list.push({ b: (f.ty + typeOf(f).h) * T, draw });
   }
   if (!world.inBed) list.push({ b: hero.y, draw: drawHero });
   list.sort((a, b) => a.b - b.b).forEach(o => o.draw());
   const tint = filterAt(m);
   if (tint) { ctx.fillStyle = tint; ctx.fillRect(0, 0, W, H); }
   drawCursor(time);
+  if (fade > 0) { ctx.fillStyle = `rgba(18,14,20,${fade.toFixed(3)})`; ctx.fillRect(0, 0, W, H); }
 }
 
 let last = performance.now();
