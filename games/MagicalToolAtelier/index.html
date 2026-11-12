@@ -311,25 +311,66 @@ const isMovable = f => typeOf(f).movable;
 // a passage counts as a wall while carrying something that may not leave this room
 const passageBlocked = (tx, ty) => tileAt(tx, ty) === "P" && !!held && !(typeOf(held).rooms || []).includes(ROOMS[world.room].other);
 const solidAt = (tx, ty) => FIXED_SOLID.has(tileAt(tx, ty)) || !!furnitureAt(tx, ty) || passageBlocked(tx, ty);
-// fixed obstacles = room solids + furniture that cannot be moved
-const fixedAt = (tx, ty, room) => FIXED_SOLID.has(tileAt(tx, ty, room)) || furniture.some(f => f.room === room && !isMovable(f) && covers(f, tx, ty));
-
-// Tiles where movable furniture may stand: floor with no fixed obstacle in the 8 surrounding tiles.
-const placeable = {};
-function computePlaceable() {
-  for (const room of Object.keys(ROOMS)) {
-    const grid = placeable[room] = [];
-    for (let ty = 0; ty < ROWS; ty++) {
-      grid.push([]);
-      for (let tx = 0; tx < COLS; tx++) {
-        let ok = !fixedAt(tx, ty, room) && tileAt(tx, ty, room) !== "P";
-        for (let dy = -1; dy <= 1 && ok; dy++) for (let dx = -1; dx <= 1 && ok; dx++) if (fixedAt(tx + dx, ty + dy, room)) ok = false;
-        grid[ty].push(ok);
-      }
+// ---------------------------------------------------------------- placement rules
+// Movable furniture may stand on any free floor tile, as long as the routes below stay open
+// (with every piece of furniture where it is now). Walking is checked tile by tile, in four directions.
+const ROUTES = {
+  shop: [
+    { name: "玄関から右上の角", from: [6, 10], to: [11, 2] },
+    { name: "右上の角から右下の角", from: [11, 2], to: [11, 10] },
+    { name: "玄関から全ての商品棚", from: [6, 10], shelves: true },
+  ],
+  workshop: [
+    { name: "左上の角から左下の角", from: [1, 2], to: [1, 10] },
+  ],
+};
+const isFloor = (tx, ty, room) => tileAt(tx, ty, room) === ".";
+function reachable(room, [sx, sy], blockKey) {
+  const walk = (x, y) => isFloor(x, y, room) && `${x},${y}` !== blockKey && !furnitureAt(x, y, room);
+  const seen = new Set();
+  if (!walk(sx, sy)) return seen;
+  const queue = [[sx, sy]];
+  seen.add(`${sx},${sy}`);
+  while (queue.length) {
+    const [x, y] = queue.shift();
+    for (const [dx, dy] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) {
+      const nx = x + dx, ny = y + dy, k = `${nx},${ny}`;
+      if (!seen.has(k) && walk(nx, ny)) { seen.add(k); queue.push([nx, ny]); }
     }
   }
+  return seen;
 }
-computePlaceable();
+// a piece is reachable when someone can stand on a tile next to it
+const besideReached = (seen, tiles) => tiles.some(([x, y]) => [[1, 0], [-1, 0], [0, 1], [0, -1]].some(([dx, dy]) => seen.has(`${x + dx},${y + dy}`)));
+const tilesOf = f => { const t = []; for (let y = 0; y < typeOf(f).h; y++) for (let x = 0; x < typeOf(f).w; x++) t.push([f.tx + x, f.ty + y]); return t; };
+// Every requirement for a room, as { key: true/false }, with one extra tile blocked (or none).
+function checkRoutes(room, blockKey, extraShelfTile) {
+  const result = {};
+  ROUTES[room].forEach((r, i) => {
+    const seen = reachable(room, r.from, blockKey);
+    if (r.to) result[`route${i}`] = seen.has(r.to.join(","));
+    if (r.shelves) {
+      for (const f of furniture) if (f.room === room && !f.held && typeOf(f).kind === "shelf") result[`shelf${f.id}`] = besideReached(seen, tilesOf(f));
+      if (extraShelfTile) result.placed = besideReached(seen, [extraShelfTile]);
+    }
+  });
+  return result;
+}
+// Tiles where the carried piece would close a route that is open now. Worked out once when lifting
+// and again on entering a room while carrying; nothing else moves furniture in between.
+let routeBlocked = new Set();
+function computeRouteBlocked() {
+  routeBlocked = new Set();
+  if (!held) return;
+  const room = world.room, base = checkRoutes(room, null, null);
+  const isShelf = typeOf(held).kind === "shelf";
+  for (let ty = 0; ty < ROWS; ty++) for (let tx = 0; tx < COLS; tx++) {
+    if (!isFloor(tx, ty, room) || furnitureAt(tx, ty, room)) continue;
+    const key = `${tx},${ty}`, res = checkRoutes(room, key, isShelf ? [tx, ty] : null);
+    const broken = Object.keys(base).some(k => base[k] && !res[k]) || res.placed === false;
+    if (broken) routeBlocked.add(key);
+  }
+}
 // ---------------------------------------------------------------- what the cursor points at
 const STATIC_TARGETS = {
   B: { kind: "board", name: "会計ボード" },
@@ -766,7 +807,7 @@ function currentTarget() { const [cx, cy] = cursorTile(); return targetAt(cx, cy
 
 // Can the carried furniture go down on this tile right now?
 function canPlaceAt(tx, ty) {
-  if (!placeable[world.room][ty]?.[tx] || furnitureAt(tx, ty)) return false;
+  if (!isFloor(tx, ty, world.room) || furnitureAt(tx, ty) || routeBlocked.has(`${tx},${ty}`)) return false;
   return !boxTiles(hero.x, hero.y, (x, y) => x === tx && y === ty); // not on top of the hero
 }
 
@@ -800,10 +841,14 @@ function contextAction() {
   if (optionsOpen()) return;
   const mode = contextMode();
   if (mode === "lift") {
-    held = currentTarget().furniture; held.held = true; flash = 0.25; saveSoon();
+    held = currentTarget().furniture; held.held = true; computeRouteBlocked(); flash = 0.25; saveSoon();
   } else if (mode === "place") {
     const [cx, cy] = cursorTile();
-    if (!canPlaceAt(cx, cy)) { say("ここには置けない。", "壁やカウンターなど動かせないものの隣（赤いマス）や、ふさがっているマスには置けない"); return; }
+    if (!canPlaceAt(cx, cy)) {
+      if (routeBlocked.has(`${cx},${cy}`)) say("ここに置くと通り道がふさがってしまう。", "赤いマスに置くと、玄関や角どうしの行き来、商品棚の前に立つことができなくなる");
+      else say("ここには置けない。", "床の空いているマスにしか置けない");
+      return;
+    }
     held.room = world.room; held.tx = cx; held.ty = cy; held.held = false; held = null; flash = 0.25; saveSoon();
   } else if (mode === "bedIn") {
     world.inBed = true; msg.hidden = true; msgTimer = 0; saveSoon();
@@ -827,6 +872,7 @@ function enterRoom(room, ty) {
   world.room = room;
   hero.x = (r.spawnX + 0.5) * T; hero.y = (ty + 1) * T - 6;
   hero.dir = r.spawnDir; hero.faceRight = r.spawnDir === "right";
+  computeRouteBlocked();
   fade = 1; saveSoon();
 }
 function warnPassage() {
@@ -957,6 +1003,7 @@ function applySave(s) {
   world.awayMs = typeof s.lastSeen === "number" ? Math.max(0, now - s.lastSeen) : null;
   lastRealMs = now;
   if (world.mode === "real") followRealClock((world.awayMs || 0) / 60000);
+  computeRouteBlocked();
   return true;
 }
 function saveLocal() { try { localStorage.setItem(SAVE_KEY, JSON.stringify(serialize())); } catch (e) {} }
@@ -1067,7 +1114,8 @@ function drawNoPlaceZone() {
   ctx.fillStyle = C.ng;
   ctx.globalAlpha = 0.28;
   for (let ty = 0; ty < ROWS; ty++) for (let tx = 0; tx < COLS; tx++) {
-    if (!FIXED_SOLID.has(tileAt(tx, ty)) && !placeable[world.room][ty][tx]) ctx.fillRect(tx * T, ty * T, T, T);
+    const c = tileAt(tx, ty);
+    if (c === "P" || (c === "." && !furnitureAt(tx, ty) && routeBlocked.has(`${tx},${ty}`))) ctx.fillRect(tx * T, ty * T, T, T);
   }
   ctx.globalAlpha = 1;
 }
