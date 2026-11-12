@@ -14,6 +14,7 @@
   --gold: #e3b341;        /* the hero's hat band */
   --navy: #2b3768;        /* the hero's cape */
   --line: #3b2f47;
+  --ng: #e0303c;          /* cannot place */
   --font-ui: "DotGothic16", "Hiragino Kaku Gothic ProN", "Yu Gothic", system-ui, sans-serif;
 }
 html, body { height: 100%; }
@@ -46,7 +47,7 @@ body {
   height: 196px; flex: none; position: relative; background: var(--panel); border-top: 2px solid var(--line);
   padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px));
 }
-#pad { position: absolute; left: 0; top: 0; bottom: 0; width: 60%; }
+#pad { position: absolute; left: 0; top: 0; bottom: 0; width: 46%; }
 #padHint {
   position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%);
   width: 108px; height: 108px; border-radius: 50%; border: 2px dashed var(--line);
@@ -61,16 +62,24 @@ body {
   width: 96px; height: 96px; border-radius: 50%; border: 3px solid var(--gold); background: var(--navy);
   color: var(--ink); font-family: var(--font-ui); font-size: 18px; cursor: pointer; touch-action: none;
 }
-#act:active, #act.on { background: var(--gold); color: var(--bg); }
-#act:focus-visible { outline: 3px solid var(--ink); outline-offset: 3px; }
-#keys { position: absolute; left: 50%; bottom: 8px; transform: translateX(-50%); font-size: 11px; color: var(--muted); white-space: nowrap; }
+#carry {
+  position: absolute; right: calc(max(28px, env(safe-area-inset-right, 0px)) + 112px); top: 50%; transform: translateY(-50%);
+  width: 76px; height: 76px; border-radius: 50%; border: 3px solid var(--ink); background: var(--line);
+  color: var(--ink); font-family: var(--font-ui); font-size: 16px; cursor: pointer; touch-action: none;
+}
+#carry.ng { border-color: var(--ng); color: var(--muted); }
+#act:active, #act.on, #carry.on { background: var(--gold); color: var(--bg); }
+#carry.ng.on { background: var(--line); color: var(--muted); }
+#act:disabled { border-color: var(--line); color: var(--muted); background: var(--panel); }
+#act:focus-visible, #carry:focus-visible { outline: 3px solid var(--ink); outline-offset: 3px; }
+#keys { position: absolute; left: 8px; right: 8px; bottom: 8px; font-size: 11px; color: var(--muted); text-align: center; }
 @media (orientation: landscape) {
   #controls { position: absolute; inset: auto 0 0 0; height: 60%; background: none; border: 0; pointer-events: none; }
   #pad { width: 35%; pointer-events: auto; }
-  #act { pointer-events: auto; }
+  #act, #carry { pointer-events: auto; }
   #padHint, #keys { opacity: .6; }
   #target { top: auto; bottom: calc(50% + 64px); right: max(16px, env(safe-area-inset-right, 0px)); }
-  #keys { position: fixed; left: max(12px, env(safe-area-inset-left, 0px)); top: 12px; bottom: auto; transform: none; white-space: normal; max-width: 22%; }
+  #keys { position: fixed; left: max(12px, env(safe-area-inset-left, 0px)); right: auto; top: 12px; bottom: auto; text-align: left; max-width: 22%; }
 }
 @media (prefers-reduced-motion: reduce) { #msg { transition: none; } }
 </style>
@@ -85,8 +94,9 @@ body {
   <div id="controls">
     <div id="pad"><div id="padHint">ドラッグで<br>移動</div><div id="stick" hidden><div id="knob"></div></div></div>
     <div id="target" hidden></div>
+    <button id="carry" type="button" hidden>持つ</button>
     <button id="act" type="button">調べる</button>
-    <div id="keys">キーボード：矢印 / WASD で移動、Space / Enter で調べる</div>
+    <div id="keys">キーボード　矢印・WASD：移動　Space・Enter：調べる　X：持つ・置く</div>
   </div>
 </div>
 
@@ -95,7 +105,10 @@ body {
 // BEGIN GENERATED: hero
 const HERO = {"palette":{"H":"#8a4a2b","h":"#62311c","j":"#b06a40","S":"#f7dcc6","E":"#3a2418","e":"#7a4a32","C":"#2b3768","c":"#1f2850","R":"#e3b341","D":"#8a3d5c","d":"#6a2d47","K":"#5a3a2e"},"frames":{"idle":["........................","....cCC.................",".....cCCCC..............",".......cCCCCC...........",".......cCCCCCCCC........",".......RRRRRRRRRR.......","..cCCCCCCCCCCCCCCCCCCC..","...hhhhhhhhhhhhhhhhhhh..","...HHHHHHHHHHHHHHHHHHH..","...HHHHHHHHHSHHHHHSHHH..","...HHHHHHHSSEESSSSEESH..","...HHHHHHHSSEESSSSEESH..","...HHHHHHHSSeeSSSSeeSH..","...HHHHHHHHSSSSSSSSSH...","...hHHHHHHHHSSSSSSS.....","....hhhhhCCCRCCCC.......","....hhhhCCCCDDDCCCC.....",".....hhcCCCCDDDCCCCC....","......ccCCCSDDDSCCCCC...",".......DDDDDDDDDDDD.....","......DDdDDdDDdDDDD.....",".........SS...SS........",".........KKK..KKK.......","........................"],
 "walk1":["........................","....cCC.................",".....cCCCC..............",".......cCCCCC...........",".......cCCCCCCCC........",".......RRRRRRRRRR.......","..cCCCCCCCCCCCCCCCCCCC..","...hhhhhhhhhhhhhhhhhhh..","...HHHHHHHHHHHHHHHHHHH..","...HHHHHHHHHSHHHHHSHHH..","...HHHHHHHSSEESSSSEESH..","...HHHHHHHSSEESSSSEESH..","...HHHHHHHSSeeSSSSeeSH..","...HHHHHHHHSSSSSSSSSH...","...hHHHHHHHHSSSSSSS.....","....hhhhhCCCRCCCC.......","....hhhhCCCCDDDCCCC.....",".....hhcCCCCDDDCCCCC....","......ccCCCSDDDSCCCCC...",".......DDDDDDDDDDDD.....","......DDdDDdDDdDDDD.....",".........KKK..SS........","..............KKK.......","........................"],
-"walk2":["........................","....cCC.................",".....cCCCC..............",".......cCCCCC...........",".......cCCCCCCCC........",".......RRRRRRRRRR.......","..cCCCCCCCCCCCCCCCCCCC..","...hhhhhhhhhhhhhhhhhhh..","...HHHHHHHHHHHHHHHHHHH..","...HHHHHHHHHSHHHHHSHHH..","...HHHHHHHSSEESSSSEESH..","...HHHHHHHSSEESSSSEESH..","...HHHHHHHSSeeSSSSeeSH..","...HHHHHHHHSSSSSSSSSH...","...hHHHHHHHHSSSSSSS.....","....hhhhhCCCRCCCC.......","....hhhhCCCCDDDCCCC.....",".....hhcCCCCDDDCCCCC....","......ccCCCSDDDSCCCCC...",".......DDDDDDDDDDDD.....","......DDdDDdDDdDDDD.....",".........SS...KKK.......",".........KKK............","........................"]}};
+"walk2":["........................","....cCC.................",".....cCCCC..............",".......cCCCCC...........",".......cCCCCCCCC........",".......RRRRRRRRRR.......","..cCCCCCCCCCCCCCCCCCCC..","...hhhhhhhhhhhhhhhhhhh..","...HHHHHHHHHHHHHHHHHHH..","...HHHHHHHHHSHHHHHSHHH..","...HHHHHHHSSEESSSSEESH..","...HHHHHHHSSEESSSSEESH..","...HHHHHHHSSeeSSSSeeSH..","...HHHHHHHHSSSSSSSSSH...","...hHHHHHHHHSSSSSSS.....","....hhhhhCCCRCCCC.......","....hhhhCCCCDDDCCCC.....",".....hhcCCCCDDDCCCCC....","......ccCCCSDDDSCCCCC...",".......DDDDDDDDDDDD.....","......DDdDDdDDdDDDD.....",".........SS...KKK.......",".........KKK............","........................"],
+"carry_idle":["........................","....cCC.................",".....cCCCC..............",".......cCCCCC...........","...S...cCCCCCCCC....S...","...S...RRRRRRRRRR...S...","..cCCCCCCCCCCCCCCCCCCC..","...hhhhhhhhhhhhhhhhhhh..","...HHHHHHHHHHHHHHHHHHH..","...HHHHHHHHHSHHHHHSHHH..","...HHHHHHHSSEESSSSEESH..","...HHHHHHHSSEESSSSEESH..","...HHHHHHHSSeeSSSSeeSH..","...HHHHHHHHSSSSSSSSSH...","...hHHHHHHHHSSSSSSS.....","....hhhhhCCCRCCCC.......","....hhhhCCCCDDDCCCC.....",".....hhcCCCCDDDCCCCC....","......ccCCCCDDDCCCCCC...",".......DDDDDDDDDDDD.....","......DDdDDdDDdDDDD.....",".........SS...SS........",".........KKK..KKK.......","........................"],
+"carry_walk1":["........................","....cCC.................",".....cCCCC..............",".......cCCCCC...........","...S...cCCCCCCCC....S...","...S...RRRRRRRRRR...S...","..cCCCCCCCCCCCCCCCCCCC..","...hhhhhhhhhhhhhhhhhhh..","...HHHHHHHHHHHHHHHHHHH..","...HHHHHHHHHSHHHHHSHHH..","...HHHHHHHSSEESSSSEESH..","...HHHHHHHSSEESSSSEESH..","...HHHHHHHSSeeSSSSeeSH..","...HHHHHHHHSSSSSSSSSH...","...hHHHHHHHHSSSSSSS.....","....hhhhhCCCRCCCC.......","....hhhhCCCCDDDCCCC.....",".....hhcCCCCDDDCCCCC....","......ccCCCCDDDCCCCCC...",".......DDDDDDDDDDDD.....","......DDdDDdDDdDDDD.....",".........KKK..SS........","..............KKK.......","........................"],
+"carry_walk2":["........................","....cCC.................",".....cCCCC..............",".......cCCCCC...........","...S...cCCCCCCCC....S...","...S...RRRRRRRRRR...S...","..cCCCCCCCCCCCCCCCCCCC..","...hhhhhhhhhhhhhhhhhhh..","...HHHHHHHHHHHHHHHHHHH..","...HHHHHHHHHSHHHHHSHHH..","...HHHHHHHSSEESSSSEESH..","...HHHHHHHSSEESSSSEESH..","...HHHHHHHSSeeSSSSeeSH..","...HHHHHHHHSSSSSSSSSH...","...hHHHHHHHHSSSSSSS.....","....hhhhhCCCRCCCC.......","....hhhhCCCCDDDCCCC.....",".....hhcCCCCDDDCCCCC....","......ccCCCCDDDCCCCCC...",".......DDDDDDDDDDDD.....","......DDdDDdDDdDDDD.....",".........SS...KKK.......",".........KKK............","........................"]}};
 // END GENERATED: hero
 
 // ---------------------------------------------------------------- pixel helpers (docs/pixel-art/tools/sprite.js)
@@ -129,46 +142,81 @@ function layer(w, h) { const c = document.createElement("canvas"); c.width = w; 
 function rect(g, x, y, w, h, color) { g.fillStyle = color; g.fillRect(x, y, w, h); }
 function box(g, x, y, w, h, fill, line = PIXEL_OUTLINE) { rect(g, x, y, w, h, line); rect(g, x + 1, y + 1, w - 2, h - 2, fill); }
 
-// ---------------------------------------------------------------- map
-// # wall  D workshop door  E entrance  S wall shelf  T display table (shelf)  K counter  B counter with checkout board
+// ---------------------------------------------------------------- map (fixed parts only; shelves are furniture below)
+// # wall  D workshop door  E entrance  K counter  B counter with checkout board
 const T = 24;
 const MAP = [
   "#############",
   "#########D###",
-  "#SSSS.......#",
+  "#...........#",
   "#.......K...#",
   "#.......KKBK#",
   "#...........#",
-  "#.TTTT......#",
-  "#.TTTT......#",
+  "#...........#",
+  "#...........#",
   "#...........#",
   "#...........#",
   "#...........#",
   "######E######",
 ];
 const COLS = MAP[0].length, ROWS = MAP.length, W = COLS * T, H = ROWS * T;
-const SOLID = new Set(["#", "D", "E", "S", "T", "K", "B"]);
+const FIXED_SOLID = new Set(["#", "D", "E", "K", "B"]);
 const tileAt = (tx, ty) => (tx < 0 || ty < 0 || tx >= COLS || ty >= ROWS) ? "#" : MAP[ty][tx];
 
-// Interactable things, keyed by "x,y". Shelves are numbered 1-12.
-const TARGETS = new Map();
-(function buildTargets() {
-  let n = 0;
-  const shelf = (x, y) => TARGETS.set(`${x},${y}`, { kind: "shelf", no: ++n, name: `商品棚 ${n}` });
-  for (let x = 1; x <= 4; x++) shelf(x, 2);
-  for (let x = 2; x <= 5; x++) shelf(x, 6);
-  for (let x = 2; x <= 5; x++) shelf(x, 7);
-  for (let y = 0; y < ROWS; y++) for (let x = 0; x < COLS; x++) {
-    const c = MAP[y][x];
-    if (c === "B") TARGETS.set(`${x},${y}`, { kind: "board", name: "会計ボード" });
-    if (c === "D") TARGETS.set(`${x},${y}`, { kind: "workshop", name: "工房へのドア" });
-    if (c === "E") TARGETS.set(`${x},${y}`, { kind: "entrance", name: "玄関のドア" });
+// ---------------------------------------------------------------- furniture
+// Every shelf is furniture. Tall wall shelves and display tables behave the same except `movable`.
+const FURNITURE_TYPES = {
+  wallShelf: { name: "背の高い棚", movable: false },
+  table: { name: "陳列台", movable: true },
+};
+function initialFurniture() {
+  const list = [];
+  let no = 0;
+  const add = (type, tx, ty) => list.push({ id: list.length, type, tx, ty, no: ++no, held: false });
+  for (let x = 1; x <= 4; x++) add("wallShelf", x, 2);
+  for (let x = 2; x <= 5; x++) add("table", x, 6);
+  for (let x = 2; x <= 5; x++) add("table", x, 7);
+  return list;
+}
+let furniture = initialFurniture();
+let held = null; // furniture being carried
+
+const furnitureAt = (tx, ty) => furniture.find(f => !f.held && f.tx === tx && f.ty === ty) || null;
+const isMovable = f => FURNITURE_TYPES[f.type].movable;
+const solidAt = (tx, ty) => FIXED_SOLID.has(tileAt(tx, ty)) || !!furnitureAt(tx, ty);
+// fixed obstacles = map solids + furniture that cannot be moved
+const fixedAt = (tx, ty) => FIXED_SOLID.has(tileAt(tx, ty)) || furniture.some(f => !isMovable(f) && f.tx === tx && f.ty === ty);
+
+// Tiles where movable furniture may stand: floor with no fixed obstacle in the 8 surrounding tiles.
+let placeable = null;
+function computePlaceable() {
+  placeable = [];
+  for (let ty = 0; ty < ROWS; ty++) {
+    placeable.push([]);
+    for (let tx = 0; tx < COLS; tx++) {
+      let ok = !fixedAt(tx, ty);
+      for (let dy = -1; dy <= 1 && ok; dy++) for (let dx = -1; dx <= 1 && ok; dx++) if (fixedAt(tx + dx, ty + dy)) ok = false;
+      placeable[ty].push(ok);
+    }
   }
-})();
+}
+computePlaceable();
+
+// ---------------------------------------------------------------- what the cursor points at
+const STATIC_TARGETS = {
+  B: { kind: "board", name: "会計ボード" },
+  D: { kind: "workshop", name: "工房へのドア" },
+  E: { kind: "entrance", name: "玄関のドア" },
+};
+function targetAt(tx, ty) {
+  const f = furnitureAt(tx, ty);
+  if (f) return { kind: "shelf", name: `商品棚 ${f.no}`, furniture: f };
+  return STATIC_TARGETS[tileAt(tx, ty)] || null;
+}
 
 // Placeholder handlers: later rounds fill these in.
 const ACTIONS = {
-  shelf: t => [`${t.name}を調べた。`, "（まだ商品は並んでいない）"],
+  shelf: t => [`${t.name}を調べた。`, `（${FURNITURE_TYPES[t.furniture.type].name}。まだ商品は並んでいない）`],
   board: t => [`${t.name}を調べた。`, "（会計はまだできない）"],
   workshop: t => [`${t.name}を調べた。`, "（工房にはまだ入れない）"],
   entrance: t => [`${t.name}を調べた。`, "（まだお客さんは来ない）"],
@@ -181,6 +229,7 @@ const C = {
   wood: "#7a4e2e", woodDark: "#5e3b22", woodDeep: "#3e2618", woodLight: "#9a6a40", woodTop: "#b78550", woodTopEdge: "#cf9d63",
   glass: "#9fc4d8", glassHi: "#d6ecf5", gold: "#e3b341", velvet: "#5b4479", velvetHi: "#7a62a0",
   slate: "#2f3b36", chalk: "#d9e3dc", rug: "#7a3d4a", rugHi: "#a85a64",
+  ng: "#e0303c",
 };
 
 function drawBackground() {
@@ -246,11 +295,9 @@ function drawBackground() {
   return c;
 }
 
-// Props are drawn after the floor and depth-sorted against the hero by their bottom edge.
-function makeProps() {
-  const props = [];
-  // wall shelves: tall cabinets, one display niche each
-  for (let tx = 1; tx <= 4; tx++) {
+// Furniture sprites. `rise` = how far the sprite reaches above its tile.
+const FURNITURE_ART = {
+  wallShelf: (() => {
     const c = layer(T, 46), g = c.getContext("2d");
     box(g, 0, 0, T, 46, C.wood);
     rect(g, 1, 1, T - 2, 4, C.woodLight);
@@ -258,48 +305,42 @@ function makeProps() {
     box(g, 3, 8, 18, 24, C.woodDeep, C.woodDark);
     rect(g, 4, 28, 16, 3, C.woodLight); rect(g, 4, 31, 16, 1, C.woodDark);
     box(g, 3, 34, 18, 9, C.wood, C.woodDark); rect(g, 11, 37, 2, 2, C.gold);
-    props.push({ img: c, x: tx * T, y: 2 * T + T - 46, bottom: 3 * T });
-  }
-  // display tables (back-to-back, 4x2): velvet mats mark each slot
-  for (const row of [6, 7]) {
-    const top = row === 6 ? 4 : 0, face = row === 7 ? 6 : 0;
-    const c = layer(4 * T, T + top), g = c.getContext("2d");
-    rect(g, 0, 0, 4 * T, T + top, PIXEL_OUTLINE);
-    rect(g, 1, row === 6 ? 1 : 0, 4 * T - 2, T + top - (row === 7 ? 1 : 0) - (row === 6 ? 1 : 0), C.woodTop);
-    if (row === 6) rect(g, 1, 1, 4 * T - 2, 1, C.woodTopEdge);
-    if (row === 7) { rect(g, 1, T - face, 4 * T - 2, face - 1, C.woodDark); rect(g, 1, T - face, 4 * T - 2, 1, C.woodDeep); }
-    for (let i = 0; i < 4; i++) {
-      const mx = i * T + 4, my = top + (row === 6 ? 4 : 2);
-      box(g, mx, my, 16, 14, C.velvet, C.woodDark);
-      rect(g, mx + 1, my + 1, 14, 1, C.velvetHi);
-    }
-    if (row === 6) rect(g, 1, T + top - 1, 4 * T - 2, 1, C.woodLight);
-    props.push({ img: c, x: 2 * T, y: row * T - top, bottom: (row + 1) * T });
-  }
-  // counter (L shape: (8,3) + (8..11,4)) with the checkout board on (10,4)
-  {
-    const up = 6, cx = 8 * T, cy = 3 * T - up;
-    const c = layer(4 * T, 2 * T + up), g = c.getContext("2d");
-    const face = 8;
-    rect(g, 0, 0, T, 2 * T + up, PIXEL_OUTLINE);
-    rect(g, 0, T + up - up, 4 * T, T + up, PIXEL_OUTLINE);
-    rect(g, 1, 1, T - 2, 2 * T + up - face - 1, C.wood);
-    rect(g, 1, T + 1, 4 * T - 2, T + up - face - 2, C.wood);
-    rect(g, 1, 1, T - 2, 1, C.woodLight); rect(g, T - 1, T + 1, 3 * T, 1, C.woodLight);
-    rect(g, 1, 2 * T + up - face, 4 * T - 2, face - 1, C.woodDark);
-    rect(g, 1, 2 * T + up - face, 4 * T - 2, 1, C.woodDeep);
-    for (let x = 8; x < 4 * T; x += 16) rect(g, x, 2 * T + up - face + 2, 1, face - 3, C.woodDeep);
-    // checkout board: small slate on a stand
-    const bx = 2 * T + 4, by = T + 1;
-    box(g, bx, by, 16, 12, C.slate, C.woodDeep);
-    rect(g, bx + 1, by + 1, 14, 1, C.gold);
-    rect(g, bx + 3, by + 4, 6, 1, C.chalk); rect(g, bx + 3, by + 7, 9, 1, C.chalk); rect(g, bx + 10, by + 4, 3, 1, C.chalk);
-    rect(g, bx + 6, by + 12, 4, 2, C.woodDeep);
-    // a small bell beside it
-    rect(g, bx + 19, by + 7, 5, 4, C.gold); rect(g, bx + 21, by + 5, 1, 2, C.gold); rect(g, bx + 18, by + 11, 7, 1, C.woodDeep);
-    props.push({ img: c, x: cx, y: cy, bottom: 5 * T });
-  }
-  return props;
+    return { img: c, rise: 46 - T };
+  })(),
+  table: (() => {
+    // small display table: top with a velvet mat, apron, two visible legs
+    const c = layer(T, 28), g = c.getContext("2d");
+    box(g, 2, 21, 3, 7, C.woodDark); box(g, 19, 21, 3, 7, C.woodDark);
+    box(g, 1, 0, 22, 18, C.woodTop);
+    rect(g, 2, 1, 20, 1, C.woodTopEdge);
+    box(g, 1, 17, 22, 5, C.woodDark);
+    rect(g, 2, 18, 20, 1, C.wood);
+    box(g, 5, 4, 14, 11, C.velvet, C.woodDark);
+    rect(g, 6, 5, 12, 1, C.velvetHi);
+    return { img: c, rise: 4 };
+  })(),
+};
+
+function makeCounter() {
+  const up = 6, face = 8;
+  const c = layer(4 * T, 2 * T + up), g = c.getContext("2d");
+  rect(g, 0, 0, T, 2 * T + up, PIXEL_OUTLINE);
+  rect(g, 0, T, 4 * T, T + up, PIXEL_OUTLINE);
+  rect(g, 1, 1, T - 2, 2 * T + up - face - 1, C.wood);
+  rect(g, 1, T + 1, 4 * T - 2, T + up - face - 2, C.wood);
+  rect(g, 1, 1, T - 2, 1, C.woodLight); rect(g, T - 1, T + 1, 3 * T, 1, C.woodLight);
+  rect(g, 1, 2 * T + up - face, 4 * T - 2, face - 1, C.woodDark);
+  rect(g, 1, 2 * T + up - face, 4 * T - 2, 1, C.woodDeep);
+  for (let x = 8; x < 4 * T; x += 16) rect(g, x, 2 * T + up - face + 2, 1, face - 3, C.woodDeep);
+  // checkout board: small slate on a stand
+  const bx = 2 * T + 4, by = T + 1;
+  box(g, bx, by, 16, 12, C.slate, C.woodDeep);
+  rect(g, bx + 1, by + 1, 14, 1, C.gold);
+  rect(g, bx + 3, by + 4, 6, 1, C.chalk); rect(g, bx + 3, by + 7, 9, 1, C.chalk); rect(g, bx + 10, by + 4, 3, 1, C.chalk);
+  rect(g, bx + 6, by + 12, 4, 2, C.woodDeep);
+  // a small bell beside it
+  rect(g, bx + 19, by + 7, 5, 4, C.gold); rect(g, bx + 21, by + 5, 1, 2, C.gold); rect(g, bx + 18, by + 11, 7, 1, C.woodDeep);
+  return { img: c, x: 8 * T, y: 3 * T - up, bottom: 5 * T };
 }
 
 // ---------------------------------------------------------------- hero
@@ -311,12 +352,13 @@ const HB = { w: 12, h: 7 };  // feet hitbox, anchored at (x, y) = bottom centre
 
 const hero = { x: 6.5 * T, y: 10 * T + 18, dir: "up", faceRight: true, moving: false, t: 0 };
 
-function blocked(x, y) {
+function boxTiles(x, y, fn) {
   const x0 = Math.floor((x - HB.w / 2) / T), x1 = Math.floor((x + HB.w / 2 - 0.01) / T);
   const y0 = Math.floor((y - HB.h) / T), y1 = Math.floor((y - 0.01) / T);
-  for (let ty = y0; ty <= y1; ty++) for (let tx = x0; tx <= x1; tx++) if (SOLID.has(tileAt(tx, ty))) return true;
+  for (let ty = y0; ty <= y1; ty++) for (let tx = x0; tx <= x1; tx++) if (fn(tx, ty)) return true;
   return false;
 }
+const blocked = (x, y) => boxTiles(x, y, solidAt);
 function moveAxis(dx, dy) {
   const dist = Math.abs(dx || dy), step = Math.sign(dx || dy);
   let moved = 0;
@@ -330,7 +372,45 @@ function moveAxis(dx, dy) {
 const DIRS = { up: [0, -1], down: [0, 1], left: [-1, 0], right: [1, 0] };
 function heroTile() { return [Math.floor(hero.x / T), Math.floor((hero.y - HB.h / 2) / T)]; }
 function cursorTile() { const [tx, ty] = heroTile(), [dx, dy] = DIRS[hero.dir]; return [tx + dx, ty + dy]; }
-function currentTarget() { const [cx, cy] = cursorTile(); return TARGETS.get(`${cx},${cy}`) || null; }
+function currentTarget() { const [cx, cy] = cursorTile(); return targetAt(cx, cy); }
+
+// Can the carried furniture go down on this tile right now?
+function canPlaceAt(tx, ty) {
+  if (!placeable[ty]?.[tx] || furnitureAt(tx, ty)) return false;
+  return !boxTiles(hero.x, hero.y, (x, y) => x === tx && y === ty); // not on top of the hero
+}
+
+// ---------------------------------------------------------------- actions
+const msg = document.getElementById("msg"), targetChip = document.getElementById("target");
+let msgTimer = 0, flash = 0;
+function say(line, note) {
+  msg.innerHTML = "";
+  msg.append(line);
+  if (note) { const s = document.createElement("small"); s.textContent = note; msg.append(s); }
+  msg.hidden = false; msg.style.opacity = 1; msgTimer = 2.6;
+}
+function examine() {
+  if (held) return;
+  const t = currentTarget();
+  flash = 0.25;
+  if (t) say(...ACTIONS[t.kind](t));
+}
+// The middle button: what it does depends on the hero and the cursor.
+function carryMode() {
+  if (held) return "place";
+  const t = currentTarget();
+  return t?.furniture && isMovable(t.furniture) ? "lift" : null;
+}
+function carry() {
+  const mode = carryMode();
+  if (mode === "lift") {
+    held = currentTarget().furniture; held.held = true; flash = 0.25;
+  } else if (mode === "place") {
+    const [cx, cy] = cursorTile();
+    if (!canPlaceAt(cx, cy)) { say("ここには置けない。", "壁やカウンターなど動かせないものの隣（赤いマス）や、ふさがっているマスには置けない"); return; }
+    held.tx = cx; held.ty = cy; held.held = false; held = null; flash = 0.25;
+  }
+}
 
 // ---------------------------------------------------------------- input
 const keys = new Set();
@@ -338,7 +418,9 @@ const stickVec = { x: 0, y: 0 };
 addEventListener("keydown", e => {
   const k = e.key.toLowerCase();
   if (["arrowup", "arrowdown", "arrowleft", "arrowright", "w", "a", "s", "d"].includes(k)) { keys.add(k); e.preventDefault(); }
-  if ((k === " " || k === "enter" || k === "z" || k === "j") && !e.repeat) { interact(); e.preventDefault(); }
+  if (e.repeat) return;
+  if (k === " " || k === "enter" || k === "z" || k === "j") { examine(); e.preventDefault(); }
+  if (k === "x" || k === "k") { carry(); e.preventDefault(); }
 });
 addEventListener("keyup", e => keys.delete(e.key.toLowerCase()));
 addEventListener("blur", () => keys.clear());
@@ -371,12 +453,16 @@ const padEnd = e => {
 };
 pad.addEventListener("pointerup", padEnd); pad.addEventListener("pointercancel", padEnd);
 
-const act = document.getElementById("act");
-act.addEventListener("pointerdown", e => { e.preventDefault(); act.classList.add("on"); interact(); });
-const actOff = () => act.classList.remove("on");
-act.addEventListener("pointerup", actOff); act.addEventListener("pointerleave", actOff); act.addEventListener("pointercancel", actOff);
-act.addEventListener("keydown", e => { if (e.key === "Enter" || e.key === " ") e.stopPropagation(); });
-act.addEventListener("click", e => { if (e.detail === 0) interact(); });
+function bindButton(el, fn) {
+  el.addEventListener("pointerdown", e => { e.preventDefault(); el.classList.add("on"); fn(); });
+  const off = () => el.classList.remove("on");
+  el.addEventListener("pointerup", off); el.addEventListener("pointerleave", off); el.addEventListener("pointercancel", off);
+  el.addEventListener("keydown", e => { if (e.key === "Enter" || e.key === " ") e.stopPropagation(); });
+  el.addEventListener("click", e => { if (e.detail === 0) fn(); });
+}
+const act = document.getElementById("act"), carryBtn = document.getElementById("carry");
+bindButton(act, examine);
+bindButton(carryBtn, carry);
 
 function inputVector() {
   let x = 0, y = 0;
@@ -388,24 +474,29 @@ function inputVector() {
   return { x: stickVec.x, y: stickVec.y };
 }
 
-// ---------------------------------------------------------------- interaction feedback
-const msg = document.getElementById("msg"), targetChip = document.getElementById("target");
-let msgTimer = 0, flash = 0;
-function interact() {
-  const t = currentTarget();
-  flash = 0.25;
-  if (!t) return;
-  const [line, note] = ACTIONS[t.kind](t);
-  msg.innerHTML = "";
-  msg.append(line);
-  const s = document.createElement("small"); s.textContent = note; msg.append(s);
-  msg.hidden = false; msg.style.opacity = 1; msgTimer = 2.6;
-}
-
 // ---------------------------------------------------------------- loop
 const canvas = document.getElementById("game"), ctx = canvas.getContext("2d");
 canvas.width = W; canvas.height = H; ctx.imageSmoothingEnabled = false;
-const BG = drawBackground(), PROPS = makeProps();
+const BG = drawBackground(), COUNTER = makeCounter();
+
+const CARRY_LABEL = { lift: "持つ", place: "置く" };
+let lastUi = "";
+function updateUi() {
+  const mode = carryMode();
+  const [cx, cy] = cursorTile();
+  const ng = mode === "place" && !canPlaceAt(cx, cy);
+  const t = held ? null : currentTarget();
+  const chip = held ? `陳列台（商品棚 ${held.no}）を運んでいる` : t ? `▶ ${t.name}` : "";
+  const key = `${mode}|${ng}|${chip}|${!!held}`;
+  if (key === lastUi) return;
+  lastUi = key;
+  carryBtn.hidden = !mode;
+  if (mode) carryBtn.textContent = CARRY_LABEL[mode];
+  carryBtn.classList.toggle("ng", ng);
+  carryBtn.setAttribute("aria-disabled", ng ? "true" : "false");
+  act.disabled = !!held;
+  targetChip.textContent = chip; targetChip.hidden = !chip;
+}
 
 function update(dt) {
   const v = inputVector();
@@ -421,46 +512,73 @@ function update(dt) {
   } else hero.t = 0;
   if (msgTimer > 0) { msgTimer -= dt; if (msgTimer <= 0.3) msg.style.opacity = Math.max(0, msgTimer / 0.3); if (msgTimer <= 0) msg.hidden = true; }
   if (flash > 0) flash -= dt;
-  const t = currentTarget();
-  const label = t ? `▶ ${t.name}` : "";
-  if (targetChip.textContent !== label) { targetChip.textContent = label; targetChip.hidden = !t; }
+  updateUi();
 }
 
 function drawHero() {
-  const frame = hero.moving ? WALK[Math.floor(hero.t / 0.14) % 4] : "idle";
-  const bob = frame === "idle" ? 0 : 1;
-  const spr = HERO_SPR[frame][hero.faceRight ? "right" : "left"];
+  const step = hero.moving ? WALK[Math.floor(hero.t / 0.14) % 4] : "idle";
+  const bob = step === "idle" ? 0 : 1;
+  const spr = HERO_SPR[(held ? "carry_" : "") + step][hero.faceRight ? "right" : "left"];
   const x = Math.round(hero.x), y = Math.round(hero.y);
   ctx.fillStyle = "rgba(29,24,38,0.35)";
   ctx.fillRect(x - 6, y - 2, 12, 2); ctx.fillRect(x - 4, y - 3, 8, 4);
-  ctx.drawImage(spr, x - 12, y - 23 - bob);
+  const sy = y - 23 - bob;
+  ctx.drawImage(spr, x - 12, sy);
+  // carried furniture rests on the raised hands, above the hat
+  if (held) ctx.drawImage(FURNITURE_ART[held.type].img, x - 12, sy + 4 - FURNITURE_ART[held.type].img.height);
+}
+
+function drawNoPlaceZone() {
+  ctx.fillStyle = C.ng;
+  ctx.globalAlpha = 0.28;
+  for (let ty = 0; ty < ROWS; ty++) for (let tx = 0; tx < COLS; tx++) {
+    if (!FIXED_SOLID.has(tileAt(tx, ty)) && !placeable[ty][tx]) ctx.fillRect(tx * T, ty * T, T, T);
+  }
+  ctx.globalAlpha = 1;
 }
 
 function drawCursor(time) {
   const [cx, cy] = cursorTile();
-  const has = TARGETS.has(`${cx},${cy}`);
   const x = cx * T, y = cy * T;
   const pulse = (Math.sin(time * 6) + 1) / 2;
-  ctx.globalAlpha = has ? 0.75 + 0.25 * pulse : 0.45;
-  const col = flash > 0 ? "#ffffff" : has ? C.gold : "#f3e9d6";
+  let col, alpha, fill = null;
+  if (held) {
+    const ok = canPlaceAt(cx, cy);
+    if (ok) { // ghost of the furniture where it would land
+      const art = FURNITURE_ART[held.type];
+      ctx.globalAlpha = 0.45; ctx.drawImage(art.img, x, y - art.rise); ctx.globalAlpha = 1;
+    }
+    col = ok ? C.gold : C.ng; alpha = 0.8 + 0.2 * pulse; fill = ok ? null : C.ng;
+  } else {
+    const has = !!targetAt(cx, cy);
+    col = has ? C.gold : "#f3e9d6"; alpha = has ? 0.75 + 0.25 * pulse : 0.45; fill = has ? C.gold : null;
+  }
+  if (flash > 0) col = "#ffffff";
+  ctx.globalAlpha = alpha;
   // corner brackets: dark backing one pixel inside, then the colour line
   const L = 6, E = T - 1;
   const corners = [[x, y, 1, 1], [x + E, y, -1, 1], [x, y + E, 1, -1], [x + E, y + E, -1, -1]];
   for (const [px, py, sx, sy] of corners) {
-    for (const [fill, inset] of [[PIXEL_OUTLINE, 1], [col, 0]]) {
-      ctx.fillStyle = fill;
+    for (const [c, inset] of [[PIXEL_OUTLINE, 1], [col, 0]]) {
+      ctx.fillStyle = c;
       const ox = px + sx * inset, oy = py + sy * inset;
       ctx.fillRect(sx > 0 ? ox : ox - L + 1, oy, L, 1);
       ctx.fillRect(ox, sy > 0 ? oy : oy - L + 1, 1, L);
     }
   }
-  if (has) { ctx.globalAlpha = 0.12 + 0.1 * pulse; ctx.fillStyle = C.gold; ctx.fillRect(x + 1, y + 1, T - 2, T - 2); }
+  if (fill) { ctx.globalAlpha = 0.12 + 0.1 * pulse; ctx.fillStyle = fill; ctx.fillRect(x + 1, y + 1, T - 2, T - 2); }
   ctx.globalAlpha = 1;
 }
 
 function render(time) {
   ctx.drawImage(BG, 0, 0);
-  const list = PROPS.map(p => ({ b: p.bottom, draw: () => ctx.drawImage(p.img, p.x, p.y) }));
+  if (held) drawNoPlaceZone();
+  const list = [{ b: COUNTER.bottom, draw: () => ctx.drawImage(COUNTER.img, COUNTER.x, COUNTER.y) }];
+  for (const f of furniture) {
+    if (f.held) continue;
+    const art = FURNITURE_ART[f.type];
+    list.push({ b: (f.ty + 1) * T, draw: () => ctx.drawImage(art.img, f.tx * T, f.ty * T - art.rise) });
+  }
   list.push({ b: hero.y, draw: drawHero });
   list.sort((a, b) => a.b - b.b).forEach(o => o.draw());
   drawCursor(time);
@@ -487,9 +605,16 @@ new ResizeObserver(fit).observe(view);
 
 function start(data) {
   if (data && typeof data.x === "number") Object.assign(hero, { x: data.x, y: data.y, dir: data.dir || "up", faceRight: data.faceRight !== false });
+  if (data && Array.isArray(data.furniture) && data.furniture.length === furniture.length) {
+    data.furniture.forEach((d, i) => Object.assign(furniture[i], { tx: d.tx, ty: d.ty, held: !!d.held }));
+    held = furniture.find(f => f.held) || null;
+  }
   fit();
   requestAnimationFrame(frame);
 }
-window.claude?.hot?.snapshot?.(() => ({ x: hero.x, y: hero.y, dir: hero.dir, faceRight: hero.faceRight }));
+window.claude?.hot?.snapshot?.(() => ({
+  x: hero.x, y: hero.y, dir: hero.dir, faceRight: hero.faceRight,
+  furniture: furniture.map(f => ({ tx: f.tx, ty: f.ty, held: f.held })),
+}));
 window.claude?.hot?.ready ? window.claude.hot.ready(start) : start(window.claude?.hot?.data ?? {});
 </script>

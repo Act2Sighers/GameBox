@@ -14,6 +14,8 @@ new = re.sub(r"(// BEGIN GENERATED: hero\n).*?(\n// END GENERATED: hero)", lambd
 assert new != html or block in html, "markers not found"
 open(html_path, "w", encoding="utf-8").write(new)
 
-ims = [sprite_image(FRAMES[k], PALETTE) for k in ("idle", "walk1", "walk2")]
-sheet([ims, [im.transpose(0) for im in ims]], labels=["idle", "walk1", "walk2"]).save(os.path.join(HERE, "hero_sheet.png"))
+names = ("idle", "walk1", "walk2")
+ims = [sprite_image(FRAMES[k], PALETTE) for k in names]
+carry = [sprite_image(FRAMES["carry_" + k], PALETTE) for k in names]
+sheet([ims, [im.transpose(0) for im in ims], carry], labels=list(names)).save(os.path.join(HERE, "hero_sheet.png"))
 print("ok")
