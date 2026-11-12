@@ -18,6 +18,7 @@
   --font-ui: "DotGothic16", "Hiragino Kaku Gothic ProN", "Yu Gothic", system-ui, sans-serif;
 }
 html, body { height: 100%; }
+[hidden] { display: none !important; }
 body {
   margin: 0; background: var(--bg); color: var(--ink); font-family: var(--font-ui);
   overflow: hidden; touch-action: none; user-select: none; -webkit-user-select: none;
@@ -73,18 +74,56 @@ body {
 #act:disabled { border-color: var(--line); color: var(--muted); background: var(--panel); }
 #act:focus-visible, #carry:focus-visible { outline: 3px solid var(--ink); outline-offset: 3px; }
 #keys { position: absolute; left: 8px; right: 8px; bottom: 8px; font-size: 11px; color: var(--muted); text-align: center; }
+#carry.wide { width: 108px; height: 60px; border-radius: 30px; padding: 0; font-size: 14px; white-space: nowrap; right: calc(max(28px, env(safe-area-inset-right, 0px)) + 108px); }
+#hud {
+  position: absolute; left: max(12px, env(safe-area-inset-left, 0px)); top: max(10px, env(safe-area-inset-top, 0px));
+  font-size: 15px; color: var(--ink); background: color-mix(in srgb, var(--bg) 70%, transparent);
+  border: 1px solid var(--line); padding: 4px 10px; pointer-events: none; font-variant-numeric: tabular-nums; z-index: 2;
+}
+#gear {
+  position: absolute; right: max(12px, env(safe-area-inset-right, 0px)); top: max(8px, env(safe-area-inset-top, 0px));
+  width: 44px; height: 44px; display: grid; place-items: center; z-index: 2;
+  background: var(--panel); color: var(--ink); border: 2px solid var(--line); border-radius: 50%; cursor: pointer;
+}
+#gear:hover { color: var(--gold); border-color: var(--gold); }
+#gear:focus-visible { outline: 3px solid var(--ink); outline-offset: 2px; }
+#options {
+  position: fixed; inset: 0; z-index: 10; display: grid; place-items: center;
+  background: color-mix(in srgb, var(--bg) 70%, transparent);
+  padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px));
+}
+.sheet {
+  width: min(360px, 100%); background: var(--panel); border: 2px solid var(--gold); box-shadow: 0 0 0 3px var(--bg);
+  padding: 16px 18px 18px; display: grid; gap: 14px;
+}
+.sheet h2 { margin: 0; font-size: 18px; font-weight: normal; letter-spacing: .1em; color: var(--gold); }
+.opt { display: grid; gap: 8px; }
+.opt-label { font-size: 15px; }
+.seg { display: grid; grid-template-columns: 1fr 1fr; border: 2px solid var(--line); }
+.seg button {
+  font: inherit; font-size: 15px; padding: 10px 0; border: 0; background: transparent; color: var(--muted); cursor: pointer;
+}
+.seg button[aria-checked="true"] { background: var(--navy); color: var(--ink); box-shadow: inset 0 -3px 0 var(--gold); }
+.seg button:focus-visible, #optClose:focus-visible { outline: 3px solid var(--ink); outline-offset: -3px; }
+.desc { margin: 0; font-size: 13px; line-height: 1.6; color: var(--muted); }
+.meta { margin: 0; font-size: 12px; line-height: 1.7; color: var(--muted); border-top: 1px solid var(--line); padding-top: 10px; }
+#optClose { font: inherit; font-size: 15px; padding: 10px; background: var(--line); color: var(--ink); border: 0; cursor: pointer; }
 @media (orientation: landscape) {
   #controls { position: absolute; inset: auto 0 0 0; height: 60%; background: none; border: 0; pointer-events: none; }
   #pad { width: 35%; pointer-events: auto; }
   #act, #carry { pointer-events: auto; }
   #padHint, #keys { opacity: .6; }
   #target { top: auto; bottom: calc(50% + 64px); right: max(16px, env(safe-area-inset-right, 0px)); }
-  #keys { position: fixed; left: max(12px, env(safe-area-inset-left, 0px)); right: auto; top: 12px; bottom: auto; text-align: left; max-width: 22%; }
+  #keys { position: fixed; left: max(12px, env(safe-area-inset-left, 0px)); right: auto; top: 56px; bottom: auto; text-align: left; max-width: 22%; }
 }
 @media (prefers-reduced-motion: reduce) { #msg { transition: none; } }
 </style>
 
 <div id="stage">
+  <div id="hud"><span id="clock">1日目 00:00</span></div>
+  <button id="gear" type="button" aria-label="オプション">
+    <svg viewBox="0 0 24 24" width="24" height="24" aria-hidden="true"><g fill="currentColor"><rect x="10" y="1" width="4" height="22"/><rect x="10" y="1" width="4" height="22" transform="rotate(45 12 12)"/><rect x="10" y="1" width="4" height="22" transform="rotate(90 12 12)"/><rect x="10" y="1" width="4" height="22" transform="rotate(135 12 12)"/><circle cx="12" cy="12" r="7.5"/></g><circle cx="12" cy="12" r="3" fill="var(--panel)"/></svg>
+  </button>
   <div id="view">
     <div id="screen">
       <canvas id="game" width="312" height="288" aria-label="店内"></canvas>
@@ -97,6 +136,22 @@ body {
     <button id="carry" type="button" hidden>持つ</button>
     <button id="act" type="button">調べる</button>
     <div id="keys">キーボード　矢印・WASD：移動　Space・Enter：調べる　X：持つ・置く</div>
+  </div>
+</div>
+
+<div id="options" role="dialog" aria-modal="true" aria-labelledby="optTitle" hidden>
+  <div class="sheet">
+    <h2 id="optTitle">オプション</h2>
+    <div class="opt">
+      <div class="opt-label" id="modeLabel">時間の流れ方</div>
+      <div class="seg" id="modeSeg" role="radiogroup" aria-labelledby="modeLabel">
+        <button type="button" role="radio" data-mode="real" aria-checked="true">リアル</button>
+        <button type="button" role="radio" data-mode="game" aria-checked="false">ゲーム</button>
+      </div>
+      <p class="desc" id="modeDesc"></p>
+    </div>
+    <p class="meta"><span id="awayInfo"></span><br><span id="saveInfo"></span></p>
+    <button id="optClose" type="button">閉じる</button>
   </div>
 </div>
 
@@ -142,7 +197,7 @@ function layer(w, h) { const c = document.createElement("canvas"); c.width = w; 
 function rect(g, x, y, w, h, color) { g.fillStyle = color; g.fillRect(x, y, w, h); }
 function box(g, x, y, w, h, fill, line = PIXEL_OUTLINE) { rect(g, x, y, w, h, line); rect(g, x + 1, y + 1, w - 2, h - 2, fill); }
 
-// ---------------------------------------------------------------- map (fixed parts only; shelves are furniture below)
+// ---------------------------------------------------------------- map (fixed parts only; shelves and the bed are furniture below)
 // # wall  D workshop door  E entrance  K counter  B counter with checkout board
 const T = 24;
 const MAP = [
@@ -163,29 +218,67 @@ const COLS = MAP[0].length, ROWS = MAP.length, W = COLS * T, H = ROWS * T;
 const FIXED_SOLID = new Set(["#", "D", "E", "K", "B"]);
 const tileAt = (tx, ty) => (tx < 0 || ty < 0 || tx >= COLS || ty >= ROWS) ? "#" : MAP[ty][tx];
 
+// ---------------------------------------------------------------- time
+// clock = game minutes since day 1, 00:00.  "real": follows the device clock and keeps running while closed.
+// "game": one day per 30 real minutes (30 s while in bed) and stops while the game is closed.
+const DAY = 1440;
+const RATE = { game: DAY / (30 * 60), bed: DAY / 30 }; // game minutes per real second
+const world = { mode: "real", clock: 0, inBed: false, awayMs: null };
+const mod = (a, n) => ((a % n) + n) % n;
+const tod = () => mod(world.clock, DAY);
+function realTOD(d = new Date()) { return d.getHours() * 60 + d.getMinutes() + d.getSeconds() / 60 + d.getMilliseconds() / 60000; }
+// Advance by realMinutes, then line the time of day up with the device clock without ever going backwards.
+function followRealClock(realMinutes) {
+  const target = world.clock + Math.max(0, realMinutes);
+  const s = mod(realTOD() - mod(target, DAY) + DAY / 2, DAY) - DAY / 2; // signed gap, -720..720
+  world.clock = s >= 0 ? target + s : Math.max(world.clock, target + s);
+}
+let lastRealMs = Date.now();
+function tickTime(dt) {
+  const now = Date.now(), realMinutes = (now - lastRealMs) / 60000;
+  lastRealMs = now;
+  if (world.mode === "real") followRealClock(realMinutes);
+  else world.clock += dt * (world.inBed ? RATE.bed : RATE.game);
+}
+function setMode(mode) {
+  if (mode === world.mode) return;
+  world.mode = mode;
+  lastRealMs = Date.now();
+  if (mode === "real") followRealClock(0);
+  saveSoon(true);
+}
+
 // ---------------------------------------------------------------- furniture
-// Every shelf is furniture. Tall wall shelves and display tables behave the same except `movable`.
+// Shelves and the bed are furniture. Wall shelves and display tables behave the same except `movable`.
 const FURNITURE_TYPES = {
-  wallShelf: { name: "背の高い棚", movable: false },
-  table: { name: "陳列台", movable: true },
+  wallShelf: { kind: "shelf", name: "背の高い棚", movable: false, w: 1, h: 1 },
+  table: { kind: "shelf", name: "陳列台", movable: true, w: 1, h: 1 },
+  bed: { kind: "bed", name: "ベッド", movable: false, w: 1, h: 2, exit: { dx: -1, dy: 1, dir: "left" } },
 };
 function initialFurniture() {
   const list = [];
   let no = 0;
-  const add = (type, tx, ty) => list.push({ id: list.length, type, tx, ty, no: ++no, held: false });
+  const add = (type, tx, ty) => {
+    const f = { id: list.length, type, tx, ty, held: false };
+    if (FURNITURE_TYPES[type].kind === "shelf") f.no = ++no;
+    list.push(f);
+  };
   for (let x = 1; x <= 4; x++) add("wallShelf", x, 2);
   for (let x = 2; x <= 5; x++) add("table", x, 6);
   for (let x = 2; x <= 5; x++) add("table", x, 7);
+  add("bed", 11, 8); // will move to the workshop once it exists
   return list;
 }
 let furniture = initialFurniture();
 let held = null; // furniture being carried
 
-const furnitureAt = (tx, ty) => furniture.find(f => !f.held && f.tx === tx && f.ty === ty) || null;
-const isMovable = f => FURNITURE_TYPES[f.type].movable;
+const typeOf = f => FURNITURE_TYPES[f.type];
+const covers = (f, tx, ty) => tx >= f.tx && tx < f.tx + typeOf(f).w && ty >= f.ty && ty < f.ty + typeOf(f).h;
+const furnitureAt = (tx, ty) => furniture.find(f => !f.held && covers(f, tx, ty)) || null;
+const isMovable = f => typeOf(f).movable;
 const solidAt = (tx, ty) => FIXED_SOLID.has(tileAt(tx, ty)) || !!furnitureAt(tx, ty);
 // fixed obstacles = map solids + furniture that cannot be moved
-const fixedAt = (tx, ty) => FIXED_SOLID.has(tileAt(tx, ty)) || furniture.some(f => !isMovable(f) && f.tx === tx && f.ty === ty);
+const fixedAt = (tx, ty) => FIXED_SOLID.has(tileAt(tx, ty)) || furniture.some(f => !isMovable(f) && covers(f, tx, ty));
 
 // Tiles where movable furniture may stand: floor with no fixed obstacle in the 8 surrounding tiles.
 let placeable = null;
@@ -210,13 +303,15 @@ const STATIC_TARGETS = {
 };
 function targetAt(tx, ty) {
   const f = furnitureAt(tx, ty);
-  if (f) return { kind: "shelf", name: `商品棚 ${f.no}`, furniture: f };
+  if (f && typeOf(f).kind === "shelf") return { kind: "shelf", name: `商品棚 ${f.no}`, furniture: f };
+  if (f) return { kind: typeOf(f).kind, name: typeOf(f).name, furniture: f };
   return STATIC_TARGETS[tileAt(tx, ty)] || null;
 }
 
 // Placeholder handlers: later rounds fill these in.
 const ACTIONS = {
-  shelf: t => [`${t.name}を調べた。`, `（${FURNITURE_TYPES[t.furniture.type].name}。まだ商品は並んでいない）`],
+  shelf: t => [`${t.name}を調べた。`, `（${typeOf(t.furniture).name}。まだ商品は並んでいない）`],
+  bed: t => [`${t.name}を調べた。`, "（ふかふかの布団。中央のボタンで布団に入れる）"],
   board: t => [`${t.name}を調べた。`, "（会計はまだできない）"],
   workshop: t => [`${t.name}を調べた。`, "（工房にはまだ入れない）"],
   entrance: t => [`${t.name}を調べた。`, "（まだお客さんは来ない）"],
@@ -229,6 +324,7 @@ const C = {
   wood: "#7a4e2e", woodDark: "#5e3b22", woodDeep: "#3e2618", woodLight: "#9a6a40", woodTop: "#b78550", woodTopEdge: "#cf9d63",
   glass: "#9fc4d8", glassHi: "#d6ecf5", gold: "#e3b341", velvet: "#5b4479", velvetHi: "#7a62a0",
   slate: "#2f3b36", chalk: "#d9e3dc", rug: "#7a3d4a", rugHi: "#a85a64",
+  sheet: "#efe9df", sheetShade: "#cfc6b6", pillow: "#fbf8f2", quilt: "#4f6fae", quiltDark: "#3d5690", quiltHi: "#7393cf",
   ng: "#e0303c",
 };
 
@@ -249,12 +345,9 @@ function drawBackground() {
   rect(g, 0, 30, W, 1, C.woodLight);
   for (let x = 6; x < W; x += 24) { rect(g, x, 33, 12, 1, C.woodDark); rect(g, x, 33, 1, 10, C.woodDark); rect(g, x, 43, 13, 1, C.woodLight); rect(g, x + 12, 33, 1, 11, C.woodLight); }
   rect(g, 0, 44, W, 4, C.woodDeep);
-  // window between shelves and door
+  // window frame between shelves and door
   const wx = 5 * T + 10, wy = 7;
-  box(g, wx, wy, 40, 22, C.glass, C.wallTop);
-  rect(g, wx + 19, wy + 1, 2, 20, C.wallTop); rect(g, wx + 1, wy + 10, 38, 2, C.wallTop);
-  for (let i = 0; i < 6; i++) rect(g, wx + 4 + i, wy + 8 - i, 1, 1, C.glassHi);
-  for (let i = 0; i < 5; i++) rect(g, wx + 24 + i, wy + 20 - i, 1, 1, C.glassHi);
+  box(g, wx, wy, 40, 22, C.glass, C.wallTop); // the view inside is drawn every frame (drawWindow)
   rect(g, wx - 2, wy + 22, 44, 3, C.woodDark);
   // workshop door (D)
   MAP.forEach((row, ty) => [...row].forEach((ch, tx) => {
@@ -295,7 +388,32 @@ function drawBackground() {
   return c;
 }
 
-// Furniture sprites. `rise` = how far the sprite reaches above its tile.
+// Furniture sprites. `rise` = how far the sprite reaches above its top tile.
+function makeBed(occupied) {
+  const c = layer(T, 2 * T + 12), g = c.getContext("2d");
+  box(g, 0, 0, 4, 24, C.woodDark); box(g, 20, 0, 4, 24, C.woodDark);           // posts
+  rect(g, 1, 1, 2, 1, C.woodLight); rect(g, 21, 1, 2, 1, C.woodLight);
+  box(g, 3, 3, 18, 13, C.wood); rect(g, 4, 4, 16, 1, C.woodLight);              // headboard
+  box(g, 7, 6, 10, 8, C.woodDark, C.woodDeep); rect(g, 11, 9, 2, 2, C.gold);
+  box(g, 1, 15, 22, 40, C.sheet);                                                // mattress
+  box(g, 4, 17, 16, 8, C.pillow, C.sheetShade); rect(g, 5, 23, 14, 1, C.sheetShade);
+  if (!occupied) {
+    box(g, 1, 28, 22, 26, C.quilt);
+    rect(g, 2, 29, 20, 2, C.sheet); rect(g, 2, 31, 20, 1, C.sheetShade);
+    for (let y = 35; y < 52; y += 5) for (let x = 4 + (y % 2) * 3; x < 21; x += 6) rect(g, x, y, 2, 1, C.quiltHi);
+  } else {
+    // a rounded mound: blanket pulled up over the pillow, bulging past the frame
+    box(g, 0, 24, 24, 30, C.quilt);
+    rect(g, 1, 25, 22, 2, C.sheet); rect(g, 1, 27, 22, 1, C.sheetShade);
+    rect(g, 1, 28, 3, 25, C.quiltDark); rect(g, 20, 28, 3, 25, C.quiltDark);
+    const ridge = [[30, 6], [31, 8], [32, 10], [33, 11], [34, 12], [35, 12], [36, 12], [37, 12], [38, 11], [39, 11], [40, 10], [41, 10], [42, 9], [43, 8], [44, 6]];
+    for (const [y, w] of ridge) rect(g, 12 - w / 2, y, w, 1, C.quiltHi);
+    for (const [y, w] of [[32, 4], [33, 6], [34, 6], [35, 6], [36, 4]]) rect(g, 12 - w / 2 - 1, y, w, 1, "#9db4e0");
+    rect(g, 1, 48, 22, 5, C.quiltDark);
+  }
+  box(g, 1, 52, 22, 8, C.wood); rect(g, 2, 53, 20, 1, C.woodLight); rect(g, 2, 57, 20, 2, C.woodDark); // footboard
+  return c;
+}
 const FURNITURE_ART = {
   wallShelf: (() => {
     const c = layer(T, 46), g = c.getContext("2d");
@@ -319,7 +437,12 @@ const FURNITURE_ART = {
     rect(g, 6, 5, 12, 1, C.velvetHi);
     return { img: c, rise: 4 };
   })(),
+  bed: { img: makeBed(false), occupiedImg: makeBed(true), rise: 12 },
 };
+function furnitureImage(f) {
+  const art = FURNITURE_ART[f.type];
+  return f.type === "bed" && world.inBed ? art.occupiedImg : art.img;
+}
 
 function makeCounter() {
   const up = 6, face = 8;
@@ -341,6 +464,86 @@ function makeCounter() {
   // a small bell beside it
   rect(g, bx + 19, by + 7, 5, 4, C.gold); rect(g, bx + 21, by + 5, 1, 2, C.gold); rect(g, bx + 18, by + 11, 7, 1, C.woodDeep);
   return { img: c, x: 8 * T, y: 3 * T - up, bottom: 5 * T };
+}
+
+// ---------------------------------------------------------------- time of day: sky, light, room filter
+const hex = s => [1, 3, 5].map(i => parseInt(s.slice(i, i + 2), 16));
+const smooth = t => t * t * (3 - 2 * t);
+// Interpolate keyframes [minute, value] around the 24h circle with eased segments (no visible steps).
+function keyed(keys, m, lerp) {
+  for (let i = 0; i < keys.length; i++) {
+    const [m0, v0] = keys[i], [m1raw, v1] = keys[(i + 1) % keys.length];
+    const m1 = i + 1 < keys.length ? m1raw : m1raw + DAY;
+    const mm = m < m0 ? m + DAY : m;
+    if (mm >= m0 && mm <= m1) return lerp(v0, v1, smooth((mm - m0) / Math.max(1e-6, m1 - m0)));
+  }
+  return keys[0][1];
+}
+const lerpNum = (a, b, t) => a + (b - a) * t;
+const lerpRGB = (a, b, t) => a.map((v, i) => v + (b[i] - v) * t);
+const rgb = c => `rgb(${c.map(Math.round).join(",")})`;
+
+const SKY = [ // [minute, [top, horizon]]
+  [0, ["#0b1030", "#1a2350"]], [270, ["#0b1030", "#1a2350"]], [330, ["#3a3d75", "#e59a7a"]], [400, ["#7fb2e0", "#f6e2a6"]],
+  [480, ["#6fb0e6", "#bfe0f2"]], [960, ["#6fb0e6", "#bfe0f2"]], [1050, ["#5a6fae", "#f29a5c"]], [1110, ["#3a2f63", "#c4607a"]],
+  [1170, ["#141a42", "#2a2f5e"]],
+].map(([m, cs]) => [m, cs.map(hex)]);
+const DAYLIGHT = [[0, 0], [300, 0], [390, 0.75], [480, 1], [960, 1], [1080, 0.55], [1170, 0.05]];
+// Room filter: very faint. Premultiplied so the colour never greys out between hues.
+const NIGHT = [26, 36, 96], DAWN = [255, 236, 160], DUSK = [255, 112, 60];
+const FILTER = [ // [minute, [r, g, b, alpha]]
+  [0, [...NIGHT, 0.17]], [210, [...NIGHT, 0.16]], [330, [...DAWN, 0.07]], [400, [...DAWN, 0.06]], [510, [...DAWN, 0]],
+  [930, [...DUSK, 0]], [1030, [...DUSK, 0.08]], [1095, [240, 90, 70, 0.09]], [1180, [...NIGHT, 0.12]], [1290, [...NIGHT, 0.15]],
+];
+function filterAt(m) {
+  const pre = keyed(FILTER.map(([k, v]) => [k, [v[0] * v[3], v[1] * v[3], v[2] * v[3], v[3]]]), m, lerpRGB);
+  const a = pre[3];
+  return a < 0.002 ? null : `rgba(${[0, 1, 2].map(i => Math.round(pre[i] / a)).join(",")},${a.toFixed(3)})`;
+}
+
+// Window view: sky gradient, hills, a far cottage, sun/moon and stars.
+const WIN = { x: 5 * T + 11, y: 8, w: 38, h: 20 };
+const STARS = [[3, 2], [9, 5], [14, 1], [22, 3], [27, 6], [33, 2], [6, 8], [30, 9], [18, 7]];
+function hillHeight(x, far) { return far ? 6 + Math.round(2 * Math.sin(x * 0.21 + 1.3) + Math.sin(x * 0.53)) : 3 + Math.round(1.6 * Math.sin(x * 0.31 + 4) + 0.8 * Math.sin(x * 0.9)); }
+function drawWindow(m, time) {
+  const { x, y, w, h } = WIN;
+  const [top, bottom] = keyed(SKY, m, (a, b, t) => [lerpRGB(a[0], b[0], t), lerpRGB(a[1], b[1], t)]);
+  const light = keyed(DAYLIGHT, m, lerpNum);
+  for (let r = 0; r < h; r++) { ctx.fillStyle = rgb(lerpRGB(top, bottom, r / (h - 1))); ctx.fillRect(x, y + r, w, 1); }
+  // stars
+  if (light < 0.6) {
+    STARS.forEach(([sx, sy], i) => {
+      ctx.globalAlpha = (1 - light / 0.6) * (0.55 + 0.45 * Math.sin(time * 1.7 + i * 2.1));
+      ctx.fillStyle = "#fff8d8"; ctx.fillRect(x + sx, y + sy, 1, 1);
+    });
+    ctx.globalAlpha = 1;
+  }
+  // sun (05:30-18:30) and moon (18:30-05:30) on an arc across the panes
+  const arc = (p, color, size) => {
+    const px = Math.round(x + 1 + p * (w - 2 - size)), py = Math.round(y + h - 5 - Math.sin(Math.PI * p) * (h - 9));
+    ctx.fillStyle = color; ctx.fillRect(px, py + 1, size, size - 2); ctx.fillRect(px + 1, py, size - 2, size);
+  };
+  if (m >= 330 && m <= 1110) {
+    const p = (m - 330) / 780;
+    arc(p, rgb(lerpRGB(hex("#ffb060"), hex("#fff3b0"), Math.sin(Math.PI * p))), 4);
+  } else {
+    const p = mod(m - 1110, DAY) / 660;
+    arc(p, "#f1ecd2", 3);
+  }
+  // hills and a cottage with a lamp at night
+  const farCol = lerpRGB(hex("#232c48"), hex("#88a8a0"), light), nearCol = lerpRGB(hex("#161d2c"), hex("#5d8a4e"), light);
+  for (let i = 0; i < w; i++) { const hh = hillHeight(i, true); ctx.fillStyle = rgb(farCol); ctx.fillRect(x + i, y + h - hh, 1, hh); }
+  const hx = x + 25, hy = y + h - hillHeight(25, true) - 3;
+  ctx.fillStyle = rgb(lerpRGB(hex("#2a2030"), hex("#c9b49a"), light)); ctx.fillRect(hx, hy, 5, 3);
+  ctx.fillStyle = rgb(lerpRGB(hex("#3a1e22"), hex("#a0483e"), light)); ctx.fillRect(hx - 1, hy - 1, 7, 1); ctx.fillRect(hx, hy - 2, 5, 1);
+  if (light < 0.5) { ctx.fillStyle = "#ffd36a"; ctx.fillRect(hx + 2, hy + 1, 1, 1); }
+  for (let i = 0; i < w; i++) { const hh = hillHeight(i, false); ctx.fillStyle = rgb(nearCol); ctx.fillRect(x + i, y + h - hh, 1, hh); }
+  // frame bars and glass glints over the view
+  ctx.fillStyle = C.wallTop; ctx.fillRect(x + 18, y, 2, h); ctx.fillRect(x, y + 9, w, 2);
+  ctx.globalAlpha = 0.35; ctx.fillStyle = C.glassHi;
+  for (let i = 0; i < 6; i++) ctx.fillRect(x + 3 + i, y + 7 - i, 1, 1);
+  for (let i = 0; i < 5; i++) ctx.fillRect(x + 23 + i, y + 19 - i, 1, 1);
+  ctx.globalAlpha = 1;
 }
 
 // ---------------------------------------------------------------- hero
@@ -390,26 +593,43 @@ function say(line, note) {
   msg.hidden = false; msg.style.opacity = 1; msgTimer = 2.6;
 }
 function examine() {
-  if (held) return;
+  if (held || world.inBed || optionsOpen()) return;
   const t = currentTarget();
   flash = 0.25;
   if (t) say(...ACTIONS[t.kind](t));
 }
 // The middle button: what it does depends on the hero and the cursor.
-function carryMode() {
+function contextMode() {
+  if (world.inBed) return "bedOut";
   if (held) return "place";
-  const t = currentTarget();
-  return t?.furniture && isMovable(t.furniture) ? "lift" : null;
+  const f = currentTarget()?.furniture;
+  if (!f) return null;
+  if (isMovable(f)) return "lift";
+  if (typeOf(f).kind === "bed") return "bedIn";
+  return null;
 }
-function carry() {
-  const mode = carryMode();
+const bed = () => furniture.find(f => f.type === "bed");
+function contextAction() {
+  if (optionsOpen()) return;
+  const mode = contextMode();
   if (mode === "lift") {
-    held = currentTarget().furniture; held.held = true; flash = 0.25;
+    held = currentTarget().furniture; held.held = true; flash = 0.25; saveSoon();
   } else if (mode === "place") {
     const [cx, cy] = cursorTile();
     if (!canPlaceAt(cx, cy)) { say("ここには置けない。", "壁やカウンターなど動かせないものの隣（赤いマス）や、ふさがっているマスには置けない"); return; }
-    held.tx = cx; held.ty = cy; held.held = false; held = null; flash = 0.25;
+    held.tx = cx; held.ty = cy; held.held = false; held = null; flash = 0.25; saveSoon();
+  } else if (mode === "bedIn") {
+    world.inBed = true; msg.hidden = true; msgTimer = 0; saveSoon();
+  } else if (mode === "bedOut") {
+    world.inBed = false;
+    placeHeroAtBedExit();
+    saveSoon();
   }
+}
+function placeHeroAtBedExit() {
+  const b = bed(), ex = FURNITURE_TYPES.bed.exit;
+  hero.x = (b.tx + ex.dx + 0.5) * T; hero.y = (b.ty + ex.dy + 1) * T - 6;
+  hero.dir = ex.dir; hero.faceRight = ex.dir === "right";
 }
 
 // ---------------------------------------------------------------- input
@@ -417,10 +637,11 @@ const keys = new Set();
 const stickVec = { x: 0, y: 0 };
 addEventListener("keydown", e => {
   const k = e.key.toLowerCase();
+  if (optionsOpen()) { if (k === "escape") closeOptions(); return; }
   if (["arrowup", "arrowdown", "arrowleft", "arrowright", "w", "a", "s", "d"].includes(k)) { keys.add(k); e.preventDefault(); }
   if (e.repeat) return;
   if (k === " " || k === "enter" || k === "z" || k === "j") { examine(); e.preventDefault(); }
-  if (k === "x" || k === "k") { carry(); e.preventDefault(); }
+  if (k === "x" || k === "k") { contextAction(); e.preventDefault(); }
 });
 addEventListener("keyup", e => keys.delete(e.key.toLowerCase()));
 addEventListener("blur", () => keys.clear());
@@ -460,11 +681,12 @@ function bindButton(el, fn) {
   el.addEventListener("keydown", e => { if (e.key === "Enter" || e.key === " ") e.stopPropagation(); });
   el.addEventListener("click", e => { if (e.detail === 0) fn(); });
 }
-const act = document.getElementById("act"), carryBtn = document.getElementById("carry");
+const act = document.getElementById("act"), ctxBtn = document.getElementById("carry");
 bindButton(act, examine);
-bindButton(carryBtn, carry);
+bindButton(ctxBtn, contextAction);
 
 function inputVector() {
+  if (world.inBed || optionsOpen()) return { x: 0, y: 0 };
   let x = 0, y = 0;
   if (keys.has("arrowleft") || keys.has("a")) x -= 1;
   if (keys.has("arrowright") || keys.has("d")) x += 1;
@@ -474,31 +696,131 @@ function inputVector() {
   return { x: stickVec.x, y: stickVec.y };
 }
 
+// ---------------------------------------------------------------- options window
+const optionsEl = document.getElementById("options"), gear = document.getElementById("gear");
+const modeButtons = [...document.querySelectorAll("#modeSeg button")];
+const MODE_TEXT = {
+  real: "ゲーム内の時刻が現実の時刻に合わせて進みます。ゲームを閉じている間も時間は進みます。",
+  game: "30分でゲーム内の1日が過ぎます。布団に入っている間は30秒で1日が過ぎます。ゲームを閉じている間は時間が止まります。",
+};
+const optionsOpen = () => !optionsEl.hidden;
+function renderOptions() {
+  modeButtons.forEach(b => b.setAttribute("aria-checked", b.dataset.mode === world.mode ? "true" : "false"));
+  document.getElementById("modeDesc").textContent = MODE_TEXT[world.mode];
+  document.getElementById("awayInfo").textContent = world.awayMs == null ? "前回の記録：なし（はじめて起動）" : `前回の終了から：${formatSpan(world.awayMs)}`;
+  document.getElementById("saveInfo").textContent = cloud.doc ? "保存先：この端末とアカウント" : "保存先：この端末";
+}
+function formatSpan(ms) {
+  const min = Math.floor(ms / 60000), d = Math.floor(min / 1440), h = Math.floor((min % 1440) / 60), m = min % 60;
+  return d ? `${d}日${h}時間${m}分` : h ? `${h}時間${m}分` : `${m}分`;
+}
+function openOptions() { keys.clear(); renderOptions(); optionsEl.hidden = false; modeButtons.find(b => b.dataset.mode === world.mode).focus(); }
+function closeOptions() { optionsEl.hidden = true; gear.focus(); }
+gear.addEventListener("click", openOptions);
+document.getElementById("optClose").addEventListener("click", closeOptions);
+optionsEl.addEventListener("pointerdown", e => { if (e.target === optionsEl) closeOptions(); });
+modeButtons.forEach(b => b.addEventListener("click", () => { setMode(b.dataset.mode); renderOptions(); }));
+
+// ---------------------------------------------------------------- saving (this device always; the account too when available)
+const SAVE_KEY = "MagicalToolAtelier.save.v1";
+const cloud = { doc: null, writing: false, lastKey: "" };
+function serialize() {
+  const now = Date.now();
+  return {
+    v: 1, savedAt: now, lastSeen: now, mode: world.mode, clock: world.clock, inBed: world.inBed,
+    hero: { x: hero.x, y: hero.y, dir: hero.dir, faceRight: hero.faceRight },
+    furniture: furniture.map(f => ({ tx: f.tx, ty: f.ty })), held: held ? held.id : null,
+  };
+}
+function applySave(s) {
+  if (!s || s.v !== 1) return false;
+  const now = Date.now();
+  if (Array.isArray(s.furniture) && s.furniture.length === furniture.length) {
+    s.furniture.forEach((d, i) => Object.assign(furniture[i], { tx: d.tx, ty: d.ty, held: false }));
+  }
+  held = s.held != null && furniture[s.held] ? furniture[s.held] : null;
+  if (held) held.held = true;
+  if (s.hero) Object.assign(hero, s.hero);
+  world.mode = s.mode === "game" ? "game" : "real";
+  world.inBed = !!s.inBed;
+  world.clock = Number(s.clock) || 0;
+  world.awayMs = typeof s.lastSeen === "number" ? Math.max(0, now - s.lastSeen) : null;
+  lastRealMs = now;
+  if (world.mode === "real") followRealClock((world.awayMs || 0) / 60000);
+  return true;
+}
+function saveLocal() { try { localStorage.setItem(SAVE_KEY, JSON.stringify(serialize())); } catch (e) {} }
+function loadLocal() { try { return JSON.parse(localStorage.getItem(SAVE_KEY) || "null"); } catch (e) { return null; } }
+// what counts as a change worth sending (in "real" mode the clock follows the device, so it is left out)
+function contentKey(s) { return JSON.stringify({ ...s, savedAt: 0, lastSeen: 0, clock: s.mode === "real" ? 0 : Math.floor(s.clock) }); }
+async function saveCloud(force) {
+  if (!cloud.doc || cloud.writing) return;
+  const s = serialize(), key = contentKey(s);
+  if (!force && key === cloud.lastKey) return;
+  cloud.writing = true;
+  try { await cloud.doc.set(s); cloud.lastKey = key; } catch (e) { if (e?.code === "invalid_argument" || e?.code === "revoked") cloud.doc = null; }
+  cloud.writing = false;
+}
+let saveTimer = 0;
+function saveSoon(force) { saveLocal(); clearTimeout(saveTimer); saveTimer = setTimeout(() => saveCloud(force), 1500); }
+setInterval(saveLocal, 5000);
+setInterval(() => saveCloud(false), 60000);
+document.addEventListener("visibilitychange", () => {
+  if (document.hidden) { saveLocal(); saveCloud(true); }
+  else { lastRealMs = Date.now(); }
+});
+addEventListener("pagehide", saveLocal);
+
+async function connectCloud(startedFrom) {
+  const c = window.claude;
+  if (!c?.use) return;
+  try {
+    const [db, user] = await Promise.all([c.use("db"), c.use("user")]);
+    if (!db || !user) return;
+    const id = await user.id();
+    if (!id) return;
+    const doc = db.doc(`data/users/${id}/save`);
+    const snap = await Promise.race([doc.get(), new Promise(r => setTimeout(() => r(null), 10000))]);
+    cloud.doc = doc;
+    const s = snap?.exists ? snap.data() : null;
+    // another device saved more recently than what this one started from: continue from that
+    if (s && s.v === 1 && (s.savedAt || 0) > (startedFrom?.savedAt || 0)) applySave(structuredClone(s));
+    saveSoon(true);
+  } catch (e) { /* stay on device-only saving */ }
+}
+
 // ---------------------------------------------------------------- loop
 const canvas = document.getElementById("game"), ctx = canvas.getContext("2d");
 canvas.width = W; canvas.height = H; ctx.imageSmoothingEnabled = false;
 const BG = drawBackground(), COUNTER = makeCounter();
+const clockEl = document.getElementById("clock");
 
-const CARRY_LABEL = { lift: "持つ", place: "置く" };
+const CONTEXT_LABEL = { lift: "持つ", place: "置く", bedIn: "布団に入る", bedOut: "布団から出る" };
 let lastUi = "";
 function updateUi() {
-  const mode = carryMode();
+  const mode = contextMode();
   const [cx, cy] = cursorTile();
   const ng = mode === "place" && !canPlaceAt(cx, cy);
-  const t = held ? null : currentTarget();
-  const chip = held ? `陳列台（商品棚 ${held.no}）を運んでいる` : t ? `▶ ${t.name}` : "";
-  const key = `${mode}|${ng}|${chip}|${!!held}`;
+  const t = held || world.inBed ? null : currentTarget();
+  const chip = world.inBed ? (world.mode === "game" ? "眠っている（時間が早く進んでいる）" : "眠っている")
+    : held ? `陳列台（商品棚 ${held.no}）を運んでいる` : t ? `▶ ${t.name}` : "";
+  const m = tod();
+  const clock = `${Math.floor(world.clock / DAY) + 1}日目 ${String(Math.floor(m / 60)).padStart(2, "0")}:${String(Math.floor(m % 60)).padStart(2, "0")}`;
+  const key = `${mode}|${ng}|${chip}|${!!held}|${world.inBed}|${clock}`;
   if (key === lastUi) return;
   lastUi = key;
-  carryBtn.hidden = !mode;
-  if (mode) carryBtn.textContent = CARRY_LABEL[mode];
-  carryBtn.classList.toggle("ng", ng);
-  carryBtn.setAttribute("aria-disabled", ng ? "true" : "false");
-  act.disabled = !!held;
+  ctxBtn.hidden = !mode;
+  if (mode) ctxBtn.textContent = CONTEXT_LABEL[mode];
+  ctxBtn.classList.toggle("ng", ng);
+  ctxBtn.classList.toggle("wide", mode === "bedIn" || mode === "bedOut");
+  ctxBtn.setAttribute("aria-disabled", ng ? "true" : "false");
+  act.disabled = !!held || world.inBed;
   targetChip.textContent = chip; targetChip.hidden = !chip;
+  clockEl.textContent = clock;
 }
 
 function update(dt) {
+  tickTime(dt);
   const v = inputVector();
   const mag = Math.hypot(v.x, v.y);
   hero.moving = mag > 0.01;
@@ -538,6 +860,7 @@ function drawNoPlaceZone() {
 }
 
 function drawCursor(time) {
+  if (world.inBed) return;
   const [cx, cy] = cursorTile();
   const x = cx * T, y = cy * T;
   const pulse = (Math.sin(time * 6) + 1) / 2;
@@ -571,16 +894,20 @@ function drawCursor(time) {
 }
 
 function render(time) {
+  const m = tod();
   ctx.drawImage(BG, 0, 0);
+  drawWindow(m, time);
   if (held) drawNoPlaceZone();
   const list = [{ b: COUNTER.bottom, draw: () => ctx.drawImage(COUNTER.img, COUNTER.x, COUNTER.y) }];
   for (const f of furniture) {
     if (f.held) continue;
     const art = FURNITURE_ART[f.type];
-    list.push({ b: (f.ty + 1) * T, draw: () => ctx.drawImage(art.img, f.tx * T, f.ty * T - art.rise) });
+    list.push({ b: (f.ty + typeOf(f).h) * T, draw: () => ctx.drawImage(furnitureImage(f), f.tx * T, f.ty * T - art.rise) });
   }
-  list.push({ b: hero.y, draw: drawHero });
+  if (!world.inBed) list.push({ b: hero.y, draw: drawHero });
   list.sort((a, b) => a.b - b.b).forEach(o => o.draw());
+  const tint = filterAt(m);
+  if (tint) { ctx.fillStyle = tint; ctx.fillRect(0, 0, W, H); }
   drawCursor(time);
 }
 
@@ -603,18 +930,14 @@ function fit() {
 addEventListener("resize", fit);
 new ResizeObserver(fit).observe(view);
 
-function start(data) {
-  if (data && typeof data.x === "number") Object.assign(hero, { x: data.x, y: data.y, dir: data.dir || "up", faceRight: data.faceRight !== false });
-  if (data && Array.isArray(data.furniture) && data.furniture.length === furniture.length) {
-    data.furniture.forEach((d, i) => Object.assign(furniture[i], { tx: d.tx, ty: d.ty, held: !!d.held }));
-    held = furniture.find(f => f.held) || null;
-  }
+function start(hot) {
+  const local = loadLocal();
+  const from = hot && hot.v === 1 ? hot : local;
+  if (!applySave(from)) { world.clock = realTOD(); lastRealMs = Date.now(); } // new game: day 1 at the current time
   fit();
   requestAnimationFrame(frame);
+  connectCloud(from);
 }
-window.claude?.hot?.snapshot?.(() => ({
-  x: hero.x, y: hero.y, dir: hero.dir, faceRight: hero.faceRight,
-  furniture: furniture.map(f => ({ tx: f.tx, ty: f.ty, held: f.held })),
-}));
-window.claude?.hot?.ready ? window.claude.hot.ready(start) : start(window.claude?.hot?.data ?? {});
+window.claude?.hot?.snapshot?.(() => serialize());
+window.claude?.hot?.ready ? window.claude.hot.ready(start) : start(window.claude?.hot?.data ?? null);
 </script>
