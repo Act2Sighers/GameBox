@@ -43,6 +43,19 @@ body {
 .shake { animation: shake .3s; }
 @keyframes shake { 0%, 100% { transform: none; } 20% { transform: translateX(-4px); } 40% { transform: translateX(4px); } 60% { transform: translateX(-3px); } 80% { transform: translateX(2px); } }
 #shade { position: absolute; inset: 0; z-index: 5; background: color-mix(in srgb, var(--bg) 55%, transparent); }
+#choiceWin { position: fixed; inset: 0; z-index: 8; display: grid; place-items: center; background: color-mix(in srgb, var(--bg) 55%, transparent); padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); }
+.choice-panel { width: min(280px, 100%); background: var(--panel); border: 2px solid var(--gold); box-shadow: 0 0 0 3px var(--bg); padding: 10px; display: grid; gap: 6px; }
+.choice-title { color: var(--gold); font-size: 14px; letter-spacing: .1em; padding: 2px 4px 4px; }
+.choice { font: inherit; font-size: 16px; text-align: left; padding: 10px 12px 10px 28px; background: var(--line); color: var(--ink); border: 0; cursor: pointer; position: relative; }
+.choice::before { content: "▶"; position: absolute; left: 10px; font-size: 11px; top: 50%; transform: translateY(-50%); color: var(--gold); opacity: 0; }
+.choice:hover::before, .choice:focus-visible::before { opacity: 1; }
+.choice:focus-visible { outline: 2px solid var(--ink); outline-offset: -2px; }
+.choice small { display: block; font-size: 12px; color: var(--muted); margin-top: 2px; }
+#outTimer {
+  position: absolute; left: 50%; top: 91.6%; transform: translate(-50%, -100%); pointer-events: none;
+  background: color-mix(in srgb, var(--bg) 85%, transparent); border: 1px solid var(--gold); color: var(--ink);
+  font-size: 12px; padding: 1px 6px; white-space: nowrap; font-variant-numeric: tabular-nums;
+}
 #chestWin { position: absolute; inset: 0; z-index: 3; display: grid; place-items: center; background: color-mix(in srgb, var(--bg) 35%, transparent); }
 .chest-panel {
   --cs: min(40px, 8.5vmin);
@@ -156,6 +169,7 @@ body {
     <div id="screen">
       <canvas id="game" width="312" height="288" aria-label="お店と工房"></canvas>
       <div id="msg" hidden></div>
+      <div id="outTimer" hidden></div>
       <div id="chestWin" hidden>
         <div class="chest-panel" role="dialog" aria-labelledby="chestTitle">
           <div class="chest-head"><span id="chestTitle">宝箱</span><button id="chestClose" type="button" aria-label="閉じる">×</button></div>
@@ -170,6 +184,14 @@ body {
     <button id="carry" type="button" hidden>持つ</button>
     <button id="act" type="button" hidden>調べる</button>
     <div id="keys">矢印・WASD：移動　Space：調べる　X：中央のボタン　1〜5：持ち物</div>
+  </div>
+</div>
+
+<div id="choiceWin" hidden>
+  <div class="choice-panel" role="dialog" aria-labelledby="choiceTitle">
+    <div class="choice-title" id="choiceTitle">玄関のドア</div>
+    <button class="choice" id="goHerb" type="button">薬草取りに出かける<small id="herbLeft"></small></button>
+    <button class="choice" id="choiceCancel" type="button">なんでもない</button>
   </div>
 </div>
 
@@ -444,6 +466,16 @@ const ACTIONS = {
 // An item is { type } and is always in exactly one place: a bag slot, a chest slot, set on a shelf or rack
 // (furniture.item), or lying in a room (ground: on the floor or on the counter, which works the same way).
 const ITEM_TYPES = {
+  herbBag: {
+    name: "薬草の入った袋", sellable: false, note: "（摘んできた薬草がぎっしり詰まっている）",
+    palette: { S: "#d2ad72", s: "#a8844e", L: "#4f8a43", g: "#8cc86a", R: "#7a4a2a" },
+    grid: [
+      "................", "....g..L..g.....", "...gLg.LgLLg....", "....gLLLLgL.....",
+      ".....LgLLL......", "......RRRR......", ".....sSRRSs.....", "....sSSSSSSs....",
+      "...sSSSSSSSSs...", "...SSSSSgSSSs...", "..sSSSgLSSSSSs..", "..SSSSLSSSSSSs..",
+      "..SSSSSSSSSSSs..", "..sSSSSSSSSSss..", "...sssssssssS...", "................",
+    ],
+  },
   catPlush: {
     name: "猫のぬいぐるみ", sellable: false, note: "（黒猫のぬいぐるみだ。かわいい！）",
     palette: { H: "#3a3650", h: "#2b2840", j: "#5a5578", p: "#c98a9a", Y: "#f2d14a", R: "#d24a5a", B: "#e3b341" },
@@ -903,21 +935,23 @@ function say(line, note) {
   msg.hidden = false; msg.style.opacity = 1; msgTimer = 2.6;
 }
 function examine() {
-  if (held || world.inBed || optionsOpen() || openChest) return;
+  if (held || world.inBed || busy()) return;
   const t = currentTarget();
   if (!t) return;
   flash = 0.25;
   if (t.kind === "chest") openChestWindow(t.furniture);
+  else if (t.kind === "entrance") openChoice();
   else say(...ACTIONS[t.kind](t));
 }
 // The right button: shown only when there is something to examine or open.
 function examineMode() {
-  if (held || world.inBed) return null;
+  if (held || world.inBed || outing.phase) return null;
   const t = currentTarget();
   return !t ? null : t.kind === "chest" ? "open" : "examine";
 }
 // The middle button: what it does depends on the hero and the cursor.
 function contextMode() {
+  if (outing.phase) return null;
   if (world.inBed) return "bedOut";
   if (held) return "place";
   const t = currentTarget();
@@ -931,7 +965,7 @@ function contextMode() {
 }
 const bed = () => furniture.find(f => f.type === "bed");
 function contextAction() {
-  if (optionsOpen() || openChest) return;
+  if (busy()) return;
   const mode = contextMode();
   if (mode === "pickup") {
     const g = currentTarget().ground;
@@ -969,7 +1003,7 @@ function useItem(i) {
   const item = bag[i];
   if (!item) return;
   const fail = () => shake(bagSlots[i]);
-  if (held || world.inBed || optionsOpen() || openChest) return fail();
+  if (held || world.inBed || busy()) return fail();
   const [cx, cy] = cursorTile();
   const f = furnitureAt(cx, cy), ch = tileAt(cx, cy);
   if (f) {
@@ -981,6 +1015,62 @@ function useItem(i) {
   bag[i] = null; renderBag(); flash = 0.25; saveSoon();
 }
 function shake(el) { el.classList.remove("shake"); void el.offsetWidth; el.classList.add("shake"); }
+
+// ---- herb gathering: out through the front door, 10 real seconds away, back with a bag of herbs
+const OUTING_MS = 10000, TRIPS_PER_HALF_DAY = 3;
+const DOOR = { x: 6.5 * T, inY: 10 * T + 18, outY: H + 30 };
+const outing = { phase: null, endsAt: 0 }; // phase: "out" (walking out) | "away" | "back" (walking in)
+world.herb = { half: -1, count: 0 };      // trips made in the current half day (00-12 / 12-24 of the game clock)
+const halfDay = () => Math.floor(world.clock / (DAY / 2));
+const tripsLeft = () => world.herb.half === halfDay() ? Math.max(0, TRIPS_PER_HALF_DAY - world.herb.count) : TRIPS_PER_HALF_DAY;
+const choiceWin = document.getElementById("choiceWin");
+const choiceOpen = () => !choiceWin.hidden;
+const busy = () => optionsOpen() || !!openChest || choiceOpen() || !!outing.phase;
+function openChoice() {
+  keys.clear(); stickVec.x = stickVec.y = 0; msg.hidden = true; msgTimer = 0;
+  document.getElementById("herbLeft").textContent = `（今の半日はあと${tripsLeft()}回）`;
+  choiceWin.hidden = false;
+  document.getElementById("goHerb").focus();
+}
+function closeChoice() { choiceWin.hidden = true; }
+function goGatherHerbs() {
+  closeChoice();
+  if (!bag.includes(null)) { say("鞄がいっぱいだ。", "鞄を整理しないと……"); return; }
+  if (tripsLeft() <= 0) { say("（薬草が復活するのを待とう）"); return; }
+  if (world.herb.half !== halfDay()) world.herb = { half: halfDay(), count: 0 };
+  world.herb.count++;
+  outing.phase = "out";
+  saveSoon();
+}
+// The game walks the hero while she is out; the timer is real time whatever the time-flow setting.
+function updateOuting(dt) {
+  const step = SPEED * dt;
+  hero.moving = outing.phase !== "away";
+  if (hero.moving) hero.t += dt;
+  if (outing.phase === "out") {
+    const dx = DOOR.x - hero.x;
+    if (Math.abs(dx) > 0.5) {
+      hero.x += Math.sign(dx) * Math.min(step, Math.abs(dx));
+      hero.dir = dx > 0 ? "right" : "left"; hero.faceRight = dx > 0;
+    } else {
+      hero.x = DOOR.x; hero.y += step; hero.dir = "down";
+      if (hero.y >= DOOR.outY) { outing.phase = "away"; outing.endsAt = Date.now() + OUTING_MS; saveSoon(); }
+    }
+  } else if (outing.phase === "away") {
+    if (Date.now() >= outing.endsAt) { outing.phase = "back"; hero.x = DOOR.x; hero.y = DOOR.outY; }
+  } else if (outing.phase === "back") {
+    hero.y -= step; hero.dir = "up";
+    if (hero.y <= DOOR.inY) {
+      hero.y = DOOR.inY; hero.moving = false; outing.phase = null;
+      bagAdd({ type: "herbBag" });
+      say("薬草取りから戻った。", "（薬草の入った袋を手に入れた）");
+      saveSoon();
+    }
+  }
+}
+document.getElementById("goHerb").addEventListener("click", goGatherHerbs);
+document.getElementById("choiceCancel").addEventListener("click", closeChoice);
+choiceWin.addEventListener("pointerdown", e => { if (e.target === choiceWin) closeChoice(); });
 
 // Stepping onto a passage moves the hero to the other room, out of the passage on the same row.
 let fade = 0, warnedAt = -1e9;
@@ -1005,6 +1095,7 @@ addEventListener("keydown", e => {
   const k = e.key.toLowerCase();
   if (optionsOpen()) { if (k === "escape") closeOptions(); return; }
   if (openChest) { if (k === "escape") closeChestWindow(); return; }
+  if (choiceOpen()) { if (k === "escape") closeChoice(); return; }
   if (/^[1-5]$/.test(k) && !e.repeat) { useItem(Number(k) - 1); return; }
   if (["arrowup", "arrowdown", "arrowleft", "arrowright", "w", "a", "s", "d"].includes(k)) { keys.add(k); e.preventDefault(); }
   if (e.repeat) return;
@@ -1054,7 +1145,7 @@ bindButton(act, examine);
 bindButton(ctxBtn, contextAction);
 
 function inputVector() {
-  if (world.inBed || optionsOpen() || openChest) return { x: 0, y: 0 };
+  if (world.inBed || busy()) return { x: 0, y: 0 };
   let x = 0, y = 0;
   if (keys.has("arrowleft") || keys.has("a")) x -= 1;
   if (keys.has("arrowright") || keys.has("d")) x += 1;
@@ -1170,14 +1261,15 @@ const cloud = { doc: null, writing: false, lastKey: "" };
 function serialize() {
   const now = Date.now();
   return {
-    v: 3, savedAt: now, lastSeen: now, mode: world.mode, clock: world.clock, inBed: world.inBed, room: world.room,
+    v: 4, savedAt: now, lastSeen: now, mode: world.mode, clock: world.clock, inBed: world.inBed, room: world.room,
     hero: { x: hero.x, y: hero.y, dir: hero.dir, faceRight: hero.faceRight },
     furniture: furniture.map(f => ({ room: f.room, tx: f.tx, ty: f.ty, item: f.item, ...(f.slots ? { slots: f.slots } : {}) })),
-    held: held ? held.id : null, bag, ground,
+    held: held ? held.id : null, bag, ground, herb: world.herb,
+    outing: outing.phase ? { phase: outing.phase, endsAt: outing.endsAt } : null,
   };
 }
 function applySave(s) {
-  if (!s || ![1, 2, 3].includes(s.v)) return false;
+  if (!s || ![1, 2, 3, 4].includes(s.v)) return false;
   const now = Date.now();
   furniture = initialFurniture();
   if (Array.isArray(s.furniture)) {
@@ -1210,6 +1302,15 @@ function applySave(s) {
   world.awayMs = typeof s.lastSeen === "number" ? Math.max(0, now - s.lastSeen) : null;
   lastRealMs = now;
   if (world.mode === "real") followRealClock((world.awayMs || 0) / 60000);
+  // herb trips (version 4)
+  world.herb = s.herb && Number.isInteger(s.herb.half) && Number.isInteger(s.herb.count) ? { half: s.herb.half, count: s.herb.count } : { half: -1, count: 0 };
+  outing.phase = null;
+  if (s.outing && ["out", "away", "back"].includes(s.outing.phase)) {
+    // still out when the game was closed: carry on waiting (real time), or walk back in
+    world.room = "shop";
+    if (s.outing.phase === "back") { outing.phase = "back"; hero.x = DOOR.x; hero.y = DOOR.outY; }
+    else { outing.phase = "away"; outing.endsAt = s.outing.phase === "away" && s.outing.endsAt ? s.outing.endsAt : now + OUTING_MS; }
+  }
   computeRouteBlocked();
   return true;
 }
@@ -1248,7 +1349,7 @@ async function connectCloud(startedFrom) {
     cloud.doc = doc;
     const s = snap?.exists ? snap.data() : null;
     // another device saved more recently than what this one started from: continue from that
-    if (s && [1, 2, 3].includes(s.v) && (s.savedAt || 0) > (startedFrom?.savedAt || 0)) applySave(structuredClone(s));
+    if (s && [1, 2, 3, 4].includes(s.v) && (s.savedAt || 0) > (startedFrom?.savedAt || 0)) applySave(structuredClone(s));
     saveSoon(true);
   } catch (e) { /* stay on device-only saving */ }
 }
@@ -1266,8 +1367,8 @@ function updateUi() {
   const mode = contextMode();
   const [cx, cy] = cursorTile();
   const ng = mode === "place" && !canPlaceAt(cx, cy);
-  const t = held || world.inBed ? null : currentTarget();
-  const chip = world.inBed ? (world.mode === "game" ? "眠っている（時間が早く進んでいる）" : "眠っている")
+  const t = held || world.inBed || outing.phase ? null : currentTarget();
+  const chip = outing.phase ? "薬草取りに出かけている" : world.inBed ? (world.mode === "game" ? "眠っている（時間が早く進んでいる）" : "眠っている")
     : held ? `${heldLabel(held)}を運んでいる` : t ? `▶ ${t.name}` : "";
   const m = tod();
   const clock = `${Math.floor(world.clock / DAY) + 1}日目 ${String(Math.floor(m / 60)).padStart(2, "0")}:${String(Math.floor(m % 60)).padStart(2, "0")}　${ROOMS[world.room].name}`;
@@ -1288,6 +1389,8 @@ function updateUi() {
 
 function update(dt) {
   tickTime(dt);
+  if (outing.phase) { updateOuting(dt); updateOutTimer(); finishFrame(dt); return; }
+  updateOutTimer();
   const v = inputVector();
   const mag = Math.hypot(v.x, v.y);
   hero.moving = mag > 0.01;
@@ -1301,6 +1404,18 @@ function update(dt) {
     const [tx, ty] = heroTile();
     if (tileAt(tx, ty) === "P") enterRoom(ROOMS[world.room].other, ty);
   } else hero.t = 0;
+  finishFrame(dt);
+}
+const outTimerEl = document.getElementById("outTimer");
+function updateOutTimer() {
+  const show = outing.phase === "away" && world.room === "shop";
+  outTimerEl.hidden = !show;
+  if (show) {
+    const text = `あと${Math.max(0, Math.ceil((outing.endsAt - Date.now()) / 1000))}秒`;
+    if (outTimerEl.textContent !== text) outTimerEl.textContent = text;
+  }
+}
+function finishFrame(dt) {
   if (fade > 0) fade = Math.max(0, fade - dt * 4);
   if (msgTimer > 0) { msgTimer -= dt; if (msgTimer <= 0.3) msg.style.opacity = Math.max(0, msgTimer / 0.3); if (msgTimer <= 0) msg.hidden = true; }
   if (flash > 0) flash -= dt;
@@ -1331,7 +1446,7 @@ function drawNoPlaceZone() {
 }
 
 function drawCursor(time) {
-  if (world.inBed) return;
+  if (world.inBed || outing.phase) return;
   const [cx, cy] = cursorTile();
   const x = cx * T, y = cy * T;
   const pulse = (Math.sin(time * 6) + 1) / 2;
@@ -1386,7 +1501,7 @@ function render(time) {
     const x = g.tx * T + 4, y = onCounter ? g.ty * T - 8 : g.ty * T + T - 18;
     list.push({ b: onCounter ? COUNTER.bottom + 0.5 : g.ty * T + T - 6.5, draw: () => ctx.drawImage(ITEM_SPR[g.item.type], x, y) });
   }
-  if (!world.inBed) list.push({ b: hero.y, draw: drawHero });
+  if (!world.inBed && outing.phase !== "away") list.push({ b: hero.y, draw: drawHero });
   list.sort((a, b) => a.b - b.b).forEach(o => o.draw());
   const tint = filterAt(m);
   if (tint) { ctx.fillStyle = tint; ctx.fillRect(0, 0, W, H); }
