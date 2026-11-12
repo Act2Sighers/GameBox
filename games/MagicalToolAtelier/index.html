@@ -29,7 +29,33 @@ body {
   padding-top: env(safe-area-inset-top, 0px); padding-bottom: env(safe-area-inset-bottom, 0px);
   padding-left: env(safe-area-inset-left, 0px); padding-right: env(safe-area-inset-right, 0px);
 }
-#view { flex: 1; min-height: 0; display: flex; align-items: center; justify-content: center; position: relative; }
+#view { flex: 1; min-height: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 8px; position: relative; }
+#view.raised { z-index: 6; }
+#bag { display: flex; gap: 8px; }
+.slot {
+  width: 44px; height: 44px; padding: 0; display: grid; place-items: center; cursor: pointer; touch-action: none;
+  background: var(--panel); border: 2px solid var(--line); border-radius: 0;
+}
+.slot.filled { border-color: color-mix(in srgb, var(--gold) 55%, var(--line)); }
+.slot img { width: 32px; height: 32px; image-rendering: pixelated; pointer-events: none; }
+.slot.lifting img { opacity: .3; }
+.slot:focus-visible { outline: 2px solid var(--ink); outline-offset: 1px; }
+.shake { animation: shake .3s; }
+@keyframes shake { 0%, 100% { transform: none; } 20% { transform: translateX(-4px); } 40% { transform: translateX(4px); } 60% { transform: translateX(-3px); } 80% { transform: translateX(2px); } }
+#shade { position: absolute; inset: 0; z-index: 5; background: color-mix(in srgb, var(--bg) 55%, transparent); }
+#chestWin { position: absolute; inset: 0; z-index: 3; display: grid; place-items: center; background: color-mix(in srgb, var(--bg) 35%, transparent); }
+.chest-panel {
+  --cs: min(40px, 8.5vmin);
+  background: var(--panel); border: 2px solid var(--gold); box-shadow: 0 0 0 3px var(--bg); padding: 8px 10px 10px; display: grid; gap: 8px;
+}
+.chest-head { display: flex; justify-content: space-between; align-items: center; color: var(--gold); font-size: 15px; letter-spacing: .1em; }
+#chestClose { font: inherit; font-size: 18px; width: 34px; height: 34px; background: var(--line); color: var(--ink); border: 0; cursor: pointer; }
+#chestClose:focus-visible { outline: 2px solid var(--ink); }
+#chestGrid { display: grid; grid-template-columns: repeat(6, var(--cs)); gap: 4px; }
+#chestGrid .slot { width: var(--cs); height: var(--cs); }
+#chestGrid .slot img { width: calc(var(--cs) - 8px); height: calc(var(--cs) - 8px); }
+.drag-ghost { position: fixed; width: 40px; height: 40px; margin: -20px 0 0 -20px; pointer-events: none; z-index: 30; image-rendering: pixelated; }
+@media (prefers-reduced-motion: reduce) { .shake { animation: none; } }
 #screen { position: relative; }
 #game { display: block; width: 100%; height: 100%; image-rendering: pixelated; image-rendering: crisp-edges; }
 #msg {
@@ -124,18 +150,26 @@ body {
   <button id="gear" type="button" aria-label="オプション">
     <svg viewBox="0 0 24 24" width="24" height="24" aria-hidden="true"><g fill="currentColor"><rect x="10" y="1" width="4" height="22"/><rect x="10" y="1" width="4" height="22" transform="rotate(45 12 12)"/><rect x="10" y="1" width="4" height="22" transform="rotate(90 12 12)"/><rect x="10" y="1" width="4" height="22" transform="rotate(135 12 12)"/><circle cx="12" cy="12" r="7.5"/></g><circle cx="12" cy="12" r="3" fill="var(--panel)"/></svg>
   </button>
+  <div id="shade" hidden></div>
   <div id="view">
+    <div id="bag" role="toolbar" aria-label="持ち物"></div>
     <div id="screen">
       <canvas id="game" width="312" height="288" aria-label="お店と工房"></canvas>
       <div id="msg" hidden></div>
+      <div id="chestWin" hidden>
+        <div class="chest-panel" role="dialog" aria-labelledby="chestTitle">
+          <div class="chest-head"><span id="chestTitle">宝箱</span><button id="chestClose" type="button" aria-label="閉じる">×</button></div>
+          <div id="chestGrid"></div>
+        </div>
+      </div>
     </div>
   </div>
   <div id="controls">
     <div id="pad"><div id="padHint">ドラッグで<br>移動</div><div id="stick" hidden><div id="knob"></div></div></div>
     <div id="target" hidden></div>
     <button id="carry" type="button" hidden>持つ</button>
-    <button id="act" type="button">調べる</button>
-    <div id="keys">キーボード　矢印・WASD：移動　Space・Enter：調べる　X：持つ・置く</div>
+    <button id="act" type="button" hidden>調べる</button>
+    <div id="keys">矢印・WASD：移動　Space：調べる　X：中央のボタン　1〜5：持ち物</div>
   </div>
 </div>
 
@@ -273,6 +307,7 @@ function setMode(mode) {
 // Everything placed in a room is furniture; types differ only in these settings.
 // rooms = where a movable piece may be carried (a passage to any other room blocks it).
 const BOTH = ["shop", "workshop"];
+const CHEST_SIZE = 30; // 6 x 5
 const FURNITURE_TYPES = {
   wallShelf: { kind: "shelf", name: "背の高い棚", movable: false, w: 1, h: 1 },
   table: { kind: "shelf", name: "陳列台", movable: true, w: 1, h: 1, rooms: ["shop"] },
@@ -287,7 +322,9 @@ function initialFurniture() {
   const add = (type, room, tx, ty) => {
     const kind = FURNITURE_TYPES[type].kind;
     count[kind] = (count[kind] || 0) + 1;
-    list.push({ id: list.length, type, room, tx, ty, no: count[kind], held: false });
+    const f = { id: list.length, type, room, tx, ty, no: count[kind], held: false, item: null };
+    if (type === "chest") f.slots = Array(CHEST_SIZE).fill(null);
+    list.push(f);
   };
   // ids 0-12 keep the order of earlier saves
   for (let x = 1; x <= 4; x++) add("wallShelf", "shop", x, 2);
@@ -386,13 +423,16 @@ function heldLabel(f) { return f.type === "table" ? `陳列台（商品棚 ${f.n
 function targetAt(tx, ty) {
   const f = furnitureAt(tx, ty);
   if (f) return { kind: typeOf(f).kind, name: furnitureName(f), furniture: f };
+  const g = groundAt(tx, ty);
+  if (g) return { kind: "item", name: itemName(g.item), ground: g };
   return STATIC_TARGETS[tileAt(tx, ty)] || null;
 }
 
 // Placeholder handlers: later rounds fill these in.
 const ACTIONS = {
-  shelf: t => [`${t.name}を調べた。`, `（${typeOf(t.furniture).name}。まだ商品は並んでいない）`],
-  rack: t => [`${t.name}を調べた。`, "（まだ何も干していない）"],
+  shelf: t => [`${t.name}を調べた。`, t.furniture.item ? `（${itemName(t.furniture.item)}が置かれている）` : `（${typeOf(t.furniture).name}。まだ商品は並んでいない）`],
+  rack: t => [`${t.name}を調べた。`, t.furniture.item ? `（${itemName(t.furniture.item)}が置かれている）` : "（まだ何も干していない）"],
+  item: t => [`${t.name}を調べた。`, ITEM_TYPES[t.ground.item.type].note],
   chest: t => [`${t.name}を開けた。`, "（中は空っぽだ）"],
   cauldron: t => [`${t.name}を覗き込んだ。`, "（緑色の何かがぐつぐつと煮えている……）"],
   step: t => [`${t.name}を調べた。`, "（大鍋を覗き込むための足場だ）"],
@@ -400,6 +440,48 @@ const ACTIONS = {
   board: t => [`${t.name}を調べた。`, "（会計はまだできない）"],
   entrance: t => [`${t.name}を調べた。`, "（まだお客さんは来ない）"],
 };
+// ---------------------------------------------------------------- items
+// An item is { type } and is always in exactly one place: a bag slot, a chest slot, set on a shelf or rack
+// (furniture.item), or lying in a room (ground: on the floor or on the counter, which works the same way).
+const ITEM_TYPES = {
+  catPlush: {
+    name: "猫のぬいぐるみ", sellable: false, note: "（黒猫のぬいぐるみだ。かわいい！）",
+    palette: { H: "#3a3650", h: "#2b2840", j: "#5a5578", p: "#c98a9a", Y: "#f2d14a", R: "#d24a5a", B: "#e3b341" },
+    grid: [
+      "................", "..H........H....", "..HH......HH....", "..HpH....HpH....",
+      "..HHHHHHHHHH....", "..HjHHHHHHHH....", "..HHYHHHHYHH....", "..HHYHHHHYHH....",
+      "...HHHHHHHH.....", "...RRRBRRRR.....", "..HHHHHHHHHH....", "..HHHHHHHHHH.H..",
+      "..HHHHHHHHHH.H..", "..HHHHHHHHHHHH..", "...hh....hh.....", "................",
+    ],
+  },
+};
+const ITEM_SPR = {}, ITEM_ICON = {};
+for (const [k, t] of Object.entries(ITEM_TYPES)) {
+  ITEM_SPR[k] = makeSprite(t.grid, t.palette).right;
+  const c = layer(32, 32), g = c.getContext("2d");
+  g.imageSmoothingEnabled = false; g.drawImage(ITEM_SPR[k], 0, 0, 32, 32);
+  ITEM_ICON[k] = c.toDataURL();
+}
+const itemName = item => ITEM_TYPES[item.type].name;
+const BAG_SIZE = 5;
+let bag = [], ground = []; // ground: { item, room, tx, ty }
+function initialItems() {
+  bag = Array(BAG_SIZE).fill(null);
+  ground = [{ item: { type: "catPlush" }, room: "shop", tx: 11, ty: 4 }]; // on the counter, right of the checkout board
+}
+initialItems();
+const groundAt = (tx, ty, room = world.room) => ground.find(g => g.room === room && g.tx === tx && g.ty === ty) || null;
+const SETS_ITEM = new Set(["shelf", "rack"]); // furniture an item can be set on (one per tile)
+// where an item sits, relative to the top of the furniture sprite
+const ITEM_SEAT = { table: -3, rack: 3, wallShelf: 12 };
+function bagAdd(item) {
+  const i = bag.indexOf(null);
+  if (i < 0) { say("鞄がいっぱいだ。", "鞄を整理しないと……"); return false; }
+  bag[i] = item; renderBag();
+  return true;
+}
+const validItem = it => it && typeof it === "object" && ITEM_TYPES[it.type] ? { type: it.type } : null;
+
 // ---------------------------------------------------------------- room art (drawn at 1x)
 const C = {
   wallTop: "#3b2a22", wallEdge: "#5a4030", plaster: "#cdb894", plasterShade: "#b9a27e",
@@ -807,7 +889,7 @@ function currentTarget() { const [cx, cy] = cursorTile(); return targetAt(cx, cy
 
 // Can the carried furniture go down on this tile right now?
 function canPlaceAt(tx, ty) {
-  if (!isFloor(tx, ty, world.room) || furnitureAt(tx, ty) || routeBlocked.has(`${tx},${ty}`)) return false;
+  if (!isFloor(tx, ty, world.room) || furnitureAt(tx, ty) || groundAt(tx, ty) || routeBlocked.has(`${tx},${ty}`)) return false;
   return !boxTiles(hero.x, hero.y, (x, y) => x === tx && y === ty); // not on top of the hero
 }
 
@@ -821,26 +903,43 @@ function say(line, note) {
   msg.hidden = false; msg.style.opacity = 1; msgTimer = 2.6;
 }
 function examine() {
-  if (held || world.inBed || optionsOpen()) return;
+  if (held || world.inBed || optionsOpen() || openChest) return;
   const t = currentTarget();
+  if (!t) return;
   flash = 0.25;
-  if (t) say(...ACTIONS[t.kind](t));
+  if (t.kind === "chest") openChestWindow(t.furniture);
+  else say(...ACTIONS[t.kind](t));
+}
+// The right button: shown only when there is something to examine or open.
+function examineMode() {
+  if (held || world.inBed) return null;
+  const t = currentTarget();
+  return !t ? null : t.kind === "chest" ? "open" : "examine";
 }
 // The middle button: what it does depends on the hero and the cursor.
 function contextMode() {
   if (world.inBed) return "bedOut";
   if (held) return "place";
-  const f = currentTarget()?.furniture;
+  const t = currentTarget();
+  if (t?.ground) return "pickup";
+  const f = t?.furniture;
   if (!f) return null;
+  if (f.item) return "collect";
   if (isMovable(f)) return "lift";
   if (typeOf(f).kind === "bed") return "bedIn";
   return null;
 }
 const bed = () => furniture.find(f => f.type === "bed");
 function contextAction() {
-  if (optionsOpen()) return;
+  if (optionsOpen() || openChest) return;
   const mode = contextMode();
-  if (mode === "lift") {
+  if (mode === "pickup") {
+    const g = currentTarget().ground;
+    if (bagAdd(g.item)) { ground.splice(ground.indexOf(g), 1); flash = 0.25; saveSoon(); }
+  } else if (mode === "collect") {
+    const f = currentTarget().furniture;
+    if (bagAdd(f.item)) { f.item = null; flash = 0.25; saveSoon(); }
+  } else if (mode === "lift") {
     held = currentTarget().furniture; held.held = true; computeRouteBlocked(); flash = 0.25; saveSoon();
   } else if (mode === "place") {
     const [cx, cy] = cursorTile();
@@ -865,6 +964,24 @@ function placeHeroAtBedExit() {
   hero.dir = ex.dir; hero.faceRight = ex.dir === "right";
 }
 
+// Using a bag item on the tile under the cursor: floor or counter = put it down, shelf or rack = set it on top.
+function useItem(i) {
+  const item = bag[i];
+  if (!item) return;
+  const fail = () => shake(bagSlots[i]);
+  if (held || world.inBed || optionsOpen() || openChest) return fail();
+  const [cx, cy] = cursorTile();
+  const f = furnitureAt(cx, cy), ch = tileAt(cx, cy);
+  if (f) {
+    if (!SETS_ITEM.has(typeOf(f).kind) || f.item) return fail();
+    f.item = item;
+  } else if ((ch === "." || ch === "K") && !groundAt(cx, cy)) {
+    ground.push({ item, room: world.room, tx: cx, ty: cy });
+  } else return fail();
+  bag[i] = null; renderBag(); flash = 0.25; saveSoon();
+}
+function shake(el) { el.classList.remove("shake"); void el.offsetWidth; el.classList.add("shake"); }
+
 // Stepping onto a passage moves the hero to the other room, out of the passage on the same row.
 let fade = 0, warnedAt = -1e9;
 function enterRoom(room, ty) {
@@ -887,6 +1004,8 @@ const stickVec = { x: 0, y: 0 };
 addEventListener("keydown", e => {
   const k = e.key.toLowerCase();
   if (optionsOpen()) { if (k === "escape") closeOptions(); return; }
+  if (openChest) { if (k === "escape") closeChestWindow(); return; }
+  if (/^[1-5]$/.test(k) && !e.repeat) { useItem(Number(k) - 1); return; }
   if (["arrowup", "arrowdown", "arrowleft", "arrowright", "w", "a", "s", "d"].includes(k)) { keys.add(k); e.preventDefault(); }
   if (e.repeat) return;
   if (k === " " || k === "enter" || k === "z" || k === "j") { examine(); e.preventDefault(); }
@@ -935,7 +1054,7 @@ bindButton(act, examine);
 bindButton(ctxBtn, contextAction);
 
 function inputVector() {
-  if (world.inBed || optionsOpen()) return { x: 0, y: 0 };
+  if (world.inBed || optionsOpen() || openChest) return { x: 0, y: 0 };
   let x = 0, y = 0;
   if (keys.has("arrowleft") || keys.has("a")) x -= 1;
   if (keys.has("arrowright") || keys.has("d")) x += 1;
@@ -944,6 +1063,81 @@ function inputVector() {
   if (x || y) { const l = Math.hypot(x, y); return { x: x / l, y: y / l }; }
   return { x: stickVec.x, y: stickVec.y };
 }
+
+// ---------------------------------------------------------------- bag and chest windows
+const bagEl = document.getElementById("bag"), chestWin = document.getElementById("chestWin"), chestGrid = document.getElementById("chestGrid");
+const shadeEl = document.getElementById("shade");
+let openChest = null;
+function makeSlot(container, i) {
+  const el = document.createElement("button");
+  el.type = "button"; el.className = "slot"; el.dataset.c = container; el.dataset.i = i;
+  el.addEventListener("pointerdown", slotDown);
+  el.addEventListener("click", e => { if (e.detail === 0 && container === "bag" && !openChest) useItem(i); }); // keyboard activation
+  return el;
+}
+const bagSlots = Array.from({ length: BAG_SIZE }, (_, i) => bagEl.appendChild(makeSlot("bag", i)));
+const chestSlots = Array.from({ length: CHEST_SIZE }, (_, i) => chestGrid.appendChild(makeSlot("chest", i)));
+function paintSlot(el, item, n) {
+  el.classList.toggle("filled", !!item);
+  el.innerHTML = item ? `<img src="${ITEM_ICON[item.type]}" alt="">` : "";
+  el.setAttribute("aria-label", item ? itemName(item) : `空き（${n}）`);
+}
+function renderBag() { bagSlots.forEach((el, i) => paintSlot(el, bag[i], i + 1)); }
+function renderChest() { if (openChest) chestSlots.forEach((el, i) => paintSlot(el, openChest.slots[i], i + 1)); }
+function openChestWindow(f) {
+  openChest = f; keys.clear(); stickVec.x = stickVec.y = 0;
+  renderChest();
+  chestWin.hidden = false; shadeEl.hidden = false; view.classList.add("raised");
+  msg.hidden = true; msgTimer = 0;
+}
+function closeChestWindow() {
+  openChest = null; chestWin.hidden = true; shadeEl.hidden = true; view.classList.remove("raised");
+  saveSoon();
+}
+document.getElementById("chestClose").addEventListener("click", closeChestWindow);
+chestWin.addEventListener("pointerdown", e => { if (e.target === chestWin) closeChestWindow(); });
+shadeEl.addEventListener("pointerdown", closeChestWindow);
+document.getElementById("view").addEventListener("pointerdown", e => { if (openChest && e.target.id === "view") closeChestWindow(); });
+
+// Tap a bag slot = use the item. While a chest is open, drag items between bag and chest (dropping on a full slot swaps).
+const slotItem = (c, i) => c === "bag" ? bag[i] : openChest.slots[i];
+function setSlot(c, i, v) { if (c === "bag") bag[i] = v; else openChest.slots[i] = v; }
+let drag = null;
+function slotDown(e) {
+  const el = e.currentTarget;
+  e.preventDefault();
+  drag = { el, c: el.dataset.c, i: Number(el.dataset.i), id: e.pointerId, x0: e.clientX, y0: e.clientY, ghost: null };
+}
+addEventListener("pointermove", e => {
+  if (!drag || e.pointerId !== drag.id) return;
+  if (!drag.ghost && openChest && slotItem(drag.c, drag.i) && Math.hypot(e.clientX - drag.x0, e.clientY - drag.y0) > 6) {
+    drag.ghost = document.createElement("img");
+    drag.ghost.className = "drag-ghost"; drag.ghost.alt = "";
+    drag.ghost.src = ITEM_ICON[slotItem(drag.c, drag.i).type];
+    document.body.append(drag.ghost); drag.el.classList.add("lifting");
+  }
+  if (drag.ghost) { drag.ghost.style.left = e.clientX + "px"; drag.ghost.style.top = e.clientY + "px"; }
+});
+function slotUp(e) {
+  if (!drag || e.pointerId !== drag.id) return;
+  const d = drag; drag = null;
+  if (d.ghost) {
+    d.ghost.remove(); d.el.classList.remove("lifting");
+    const to = e.type === "pointerup" ? document.elementFromPoint(e.clientX, e.clientY)?.closest(".slot") : null;
+    if (to && openChest) {
+      const c2 = to.dataset.c, i2 = Number(to.dataset.i);
+      if (c2 !== d.c || i2 !== d.i) {
+        const a = slotItem(d.c, d.i), b = slotItem(c2, i2);
+        setSlot(c2, i2, a); setSlot(d.c, d.i, b);
+        renderBag(); renderChest(); saveSoon();
+      }
+    }
+  } else if (e.type === "pointerup" && d.c === "bag" && !openChest && d.el.contains(document.elementFromPoint(e.clientX, e.clientY))) {
+    useItem(d.i);
+  }
+}
+addEventListener("pointerup", slotUp);
+addEventListener("pointercancel", slotUp);
 
 // ---------------------------------------------------------------- options window
 const optionsEl = document.getElementById("options"), gear = document.getElementById("gear");
@@ -976,13 +1170,14 @@ const cloud = { doc: null, writing: false, lastKey: "" };
 function serialize() {
   const now = Date.now();
   return {
-    v: 2, savedAt: now, lastSeen: now, mode: world.mode, clock: world.clock, inBed: world.inBed, room: world.room,
+    v: 3, savedAt: now, lastSeen: now, mode: world.mode, clock: world.clock, inBed: world.inBed, room: world.room,
     hero: { x: hero.x, y: hero.y, dir: hero.dir, faceRight: hero.faceRight },
-    furniture: furniture.map(f => ({ room: f.room, tx: f.tx, ty: f.ty })), held: held ? held.id : null,
+    furniture: furniture.map(f => ({ room: f.room, tx: f.tx, ty: f.ty, item: f.item, ...(f.slots ? { slots: f.slots } : {}) })),
+    held: held ? held.id : null, bag, ground,
   };
 }
 function applySave(s) {
-  if (!s || (s.v !== 1 && s.v !== 2)) return false;
+  if (!s || ![1, 2, 3].includes(s.v)) return false;
   const now = Date.now();
   furniture = initialFurniture();
   if (Array.isArray(s.furniture)) {
@@ -990,8 +1185,20 @@ function applySave(s) {
     const keep = s.v === 1 ? 12 : furniture.length;
     s.furniture.slice(0, keep).forEach((d, i) => {
       if (furniture[i] && d) Object.assign(furniture[i], { tx: d.tx, ty: d.ty, room: d.room || "shop" });
+      if (furniture[i] && d && s.v >= 3) {
+        furniture[i].item = validItem(d.item);
+        if (furniture[i].slots && Array.isArray(d.slots)) furniture[i].slots = Array.from({ length: CHEST_SIZE }, (_, k) => validItem(d.slots[k]));
+      }
     });
   }
+  // version 3 added items; older saves start with the cat on the counter
+  initialItems();
+  if (s.v >= 3) {
+    bag = Array.from({ length: BAG_SIZE }, (_, k) => validItem(s.bag?.[k]));
+    ground = (Array.isArray(s.ground) ? s.ground : []).map(g => ({ item: validItem(g?.item), room: g?.room, tx: g?.tx, ty: g?.ty }))
+      .filter(g => g.item && ROOMS[g.room] && Number.isInteger(g.tx) && Number.isInteger(g.ty));
+  }
+  renderBag(); if (openChest) closeChestWindow();
   held = s.held != null && s.held < (s.v === 1 ? 12 : furniture.length) && furniture[s.held] ? furniture[s.held] : null;
   if (held) held.held = true;
   world.room = ROOMS[s.room] ? s.room : "shop";
@@ -1041,7 +1248,7 @@ async function connectCloud(startedFrom) {
     cloud.doc = doc;
     const s = snap?.exists ? snap.data() : null;
     // another device saved more recently than what this one started from: continue from that
-    if (s && (s.v === 1 || s.v === 2) && (s.savedAt || 0) > (startedFrom?.savedAt || 0)) applySave(structuredClone(s));
+    if (s && [1, 2, 3].includes(s.v) && (s.savedAt || 0) > (startedFrom?.savedAt || 0)) applySave(structuredClone(s));
     saveSoon(true);
   } catch (e) { /* stay on device-only saving */ }
 }
@@ -1052,7 +1259,8 @@ canvas.width = W; canvas.height = H; ctx.imageSmoothingEnabled = false;
 const BGS = { shop: drawBackground("shop"), workshop: drawBackground("workshop") }, COUNTER = makeCounter();
 const clockEl = document.getElementById("clock");
 
-const CONTEXT_LABEL = { lift: "持つ", place: "置く", bedIn: "布団に入る", bedOut: "布団から出る" };
+const CONTEXT_LABEL = { lift: "持つ", place: "置く", bedIn: "布団に入る", bedOut: "布団から出る", pickup: "拾う", collect: "回収する" };
+const EXAMINE_LABEL = { examine: "調べる", open: "開く" };
 let lastUi = "";
 function updateUi() {
   const mode = contextMode();
@@ -1063,15 +1271,17 @@ function updateUi() {
     : held ? `${heldLabel(held)}を運んでいる` : t ? `▶ ${t.name}` : "";
   const m = tod();
   const clock = `${Math.floor(world.clock / DAY) + 1}日目 ${String(Math.floor(m / 60)).padStart(2, "0")}:${String(Math.floor(m % 60)).padStart(2, "0")}　${ROOMS[world.room].name}`;
-  const key = `${mode}|${ng}|${chip}|${!!held}|${world.inBed}|${clock}`;
+  const exMode = openChest ? null : examineMode();
+  const key = `${mode}|${ng}|${chip}|${exMode}|${!!openChest}|${clock}`;
   if (key === lastUi) return;
   lastUi = key;
-  ctxBtn.hidden = !mode;
+  ctxBtn.hidden = !mode || !!openChest;
   if (mode) ctxBtn.textContent = CONTEXT_LABEL[mode];
   ctxBtn.classList.toggle("ng", ng);
-  ctxBtn.classList.toggle("wide", mode === "bedIn" || mode === "bedOut");
+  ctxBtn.classList.toggle("wide", mode === "bedIn" || mode === "bedOut" || mode === "collect");
   ctxBtn.setAttribute("aria-disabled", ng ? "true" : "false");
-  act.disabled = !!held || world.inBed;
+  act.hidden = !exMode;
+  if (exMode) act.textContent = EXAMINE_LABEL[exMode];
   targetChip.textContent = chip; targetChip.hidden = !chip;
   clockEl.textContent = clock;
 }
@@ -1164,8 +1374,17 @@ function render(time) {
   for (const f of furniture) {
     if (f.held || f.room !== world.room) continue;
     const art = FURNITURE_ART[f.type], x = f.tx * T, y = f.ty * T - art.rise;
-    const draw = f.type === "cauldron" ? () => drawCauldron(x, y, time) : () => ctx.drawImage(furnitureImage(f), x, y);
+    const draw = f.type === "cauldron" ? () => drawCauldron(x, y, time) : () => {
+      ctx.drawImage(furnitureImage(f), x, y);
+      if (f.item) ctx.drawImage(ITEM_SPR[f.item.type], x + 4, y + ITEM_SEAT[f.type]);
+    };
     list.push({ b: (f.ty + typeOf(f).h) * T, draw });
+  }
+  for (const g of ground) {
+    if (g.room !== world.room) continue;
+    const onCounter = tileAt(g.tx, g.ty) === "K";
+    const x = g.tx * T + 4, y = onCounter ? g.ty * T - 8 : g.ty * T + T - 18;
+    list.push({ b: onCounter ? COUNTER.bottom + 0.5 : g.ty * T + T - 6.5, draw: () => ctx.drawImage(ITEM_SPR[g.item.type], x, y) });
   }
   if (!world.inBed) list.push({ b: hero.y, draw: drawHero });
   list.sort((a, b) => a.b - b.b).forEach(o => o.draw());
@@ -1186,7 +1405,7 @@ function frame(now) {
 const view = document.getElementById("view"), screenEl = document.getElementById("screen");
 function fit() {
   const r = view.getBoundingClientRect(), dpr = devicePixelRatio || 1;
-  const s = Math.min(r.width / W, r.height / H) * dpr;
+  const s = Math.min(r.width / W, (r.height - bagEl.offsetHeight - 8) / H) * dpr;
   // integer device pixels keep every dot the same size; fall back to a fractional scale when that would waste >10% of the space
   const css = (s >= 1 && Math.floor(s) / s >= 0.9 ? Math.floor(s) : s) / dpr;
   screenEl.style.width = W * css + "px"; screenEl.style.height = H * css + "px";
@@ -1196,8 +1415,9 @@ new ResizeObserver(fit).observe(view);
 
 function start(hot) {
   const local = loadLocal();
-  const from = hot && hot.v === 1 ? hot : local;
+  const from = hot && hot.v ? hot : local;
   if (!applySave(from)) { world.clock = realTOD(); lastRealMs = Date.now(); } // new game: day 1 at the current time
+  renderBag();
   fit();
   requestAnimationFrame(frame);
   connectCloud(from);
