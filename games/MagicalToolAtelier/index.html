@@ -32,6 +32,23 @@ body {
 #view { flex: 1; min-height: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 8px; position: relative; }
 #view.raised { z-index: 6; }
 #bag { display: flex; gap: 8px; }
+.slot { position: relative; }
+/* map focus: the bag is dimmed (the slot the hero holds stays lit) */
+#bag.dim .slot:not(.holding)::after { content: ""; position: absolute; inset: -2px; background: rgba(0, 0, 0, .5); pointer-events: none; }
+.slot.holding { border-color: var(--gold); box-shadow: 0 0 0 2px var(--gold), 0 0 10px color-mix(in srgb, var(--gold) 60%, transparent); }
+/* bag focus: the cursor sits on one slot */
+.slot.cursor { border-color: var(--gold); }
+.slot.cursor::before {
+  content: ""; position: absolute; inset: -6px; pointer-events: none;
+  background:
+    linear-gradient(var(--gold), var(--gold)) top left / 10px 2px, linear-gradient(var(--gold), var(--gold)) top left / 2px 10px,
+    linear-gradient(var(--gold), var(--gold)) top right / 10px 2px, linear-gradient(var(--gold), var(--gold)) top right / 2px 10px,
+    linear-gradient(var(--gold), var(--gold)) bottom left / 10px 2px, linear-gradient(var(--gold), var(--gold)) bottom left / 2px 10px,
+    linear-gradient(var(--gold), var(--gold)) bottom right / 10px 2px, linear-gradient(var(--gold), var(--gold)) bottom right / 2px 10px;
+  background-repeat: no-repeat; animation: pulse 1s ease-in-out infinite alternate;
+}
+@keyframes pulse { from { opacity: .65; } to { opacity: 1; } }
+@media (prefers-reduced-motion: reduce) { .slot.cursor::before { animation: none; } }
 .slot {
   width: 44px; height: 44px; padding: 0; display: grid; place-items: center; cursor: pointer; touch-action: none;
   background: var(--panel); border: 2px solid var(--line); border-radius: 0;
@@ -935,7 +952,11 @@ function say(line, note) {
   msg.hidden = false; msg.style.opacity = 1; msgTimer = 2.6;
 }
 function examine() {
-  if (held || world.inBed || busy()) return;
+  if (busy()) return;
+  const mode = examineMode();
+  if (mode === "inspect") { const it = bag[bagCursor]; say(`${itemName(it)}を調べた。`, ITEM_TYPES[it.type].note); return; }
+  if (mode === "put") return putHeldItem();
+  if (mode !== "examine" && mode !== "open") return;
   const t = currentTarget();
   if (!t) return;
   flash = 0.25;
@@ -945,15 +966,20 @@ function examine() {
 }
 // The right button: shown only when there is something to examine or open.
 function examineMode() {
-  if (held || world.inBed || outing.phase) return null;
+  if (outing.phase) return null;
+  if (focus === "bag") return bag[bagCursor] ? "inspect" : null;
+  if (heldItem != null) return "put";
+  if (held || world.inBed) return null;
   const t = currentTarget();
   return !t ? null : t.kind === "chest" ? "open" : "examine";
 }
 // The middle button: what it does depends on the hero and the cursor.
 function contextMode() {
   if (outing.phase) return null;
+  if (focus === "bag") return bag[bagCursor] && !held && !world.inBed ? "hold" : null;
   if (world.inBed) return "bedOut";
   if (held) return "place";
+  if (heldItem != null) return "stow";
   const t = currentTarget();
   if (t?.ground) return "pickup";
   const f = t?.furniture;
@@ -967,7 +993,11 @@ const bed = () => furniture.find(f => f.type === "bed");
 function contextAction() {
   if (busy()) return;
   const mode = contextMode();
-  if (mode === "pickup") {
+  if (mode === "hold") {
+    heldItem = bagCursor; focus = "map"; renderBag(); flash = 0.25;
+  } else if (mode === "stow") {
+    heldItem = null; renderBag();
+  } else if (mode === "pickup") {
     const g = currentTarget().ground;
     if (bagAdd(g.item)) { ground.splice(ground.indexOf(g), 1); flash = 0.25; saveSoon(); }
   } else if (mode === "collect") {
@@ -999,11 +1029,23 @@ function placeHeroAtBedExit() {
 }
 
 // Using a bag item on the tile under the cursor: floor or counter = put it down, shelf or rack = set it on top.
-function useItem(i) {
-  const item = bag[i];
-  if (!item) return;
+// ---- focus: "map" (cursor on the room) or "bag" (cursor on a bag slot). Always starts on the map.
+let focus = "map", bagCursor = 0, heldItem = null; // heldItem = index of the bag slot the hero holds in her arms
+function setFocus(f) {
+  if (focus === f) return;
+  focus = f;
+  renderBag();
+}
+function selectSlot(i) {
+  if (busy()) return;
+  bagCursor = i; focus = "bag"; keys.clear();
+  renderBag();
+}
+// Put the held item down on the tile under the cursor: floor or counter, or on top of a shelf or rack.
+function putHeldItem() {
+  const i = heldItem, item = bag[i];
+  if (item == null) { heldItem = null; renderBag(); return; }
   const fail = () => shake(bagSlots[i]);
-  if (held || world.inBed || busy()) return fail();
   const [cx, cy] = cursorTile();
   const f = furnitureAt(cx, cy), ch = tileAt(cx, cy);
   if (f) {
@@ -1012,7 +1054,7 @@ function useItem(i) {
   } else if ((ch === "." || ch === "K") && !groundAt(cx, cy)) {
     ground.push({ item, room: world.room, tx: cx, ty: cy });
   } else return fail();
-  bag[i] = null; renderBag(); flash = 0.25; saveSoon();
+  bag[i] = null; heldItem = null; renderBag(); flash = 0.25; saveSoon();
 }
 function shake(el) { el.classList.remove("shake"); void el.offsetWidth; el.classList.add("shake"); }
 
@@ -1096,7 +1138,8 @@ addEventListener("keydown", e => {
   if (optionsOpen()) { if (k === "escape") closeOptions(); return; }
   if (openChest) { if (k === "escape") closeChestWindow(); return; }
   if (choiceOpen()) { if (k === "escape") closeChoice(); return; }
-  if (/^[1-5]$/.test(k) && !e.repeat) { useItem(Number(k) - 1); return; }
+  if (/^[1-5]$/.test(k) && !e.repeat) { selectSlot(Number(k) - 1); return; }
+  if (k === "escape" && focus === "bag") { setFocus("map"); return; }
   if (["arrowup", "arrowdown", "arrowleft", "arrowright", "w", "a", "s", "d"].includes(k)) { keys.add(k); e.preventDefault(); }
   if (e.repeat) return;
   if (k === " " || k === "enter" || k === "z" || k === "j") { examine(); e.preventDefault(); }
@@ -1163,7 +1206,7 @@ function makeSlot(container, i) {
   const el = document.createElement("button");
   el.type = "button"; el.className = "slot"; el.dataset.c = container; el.dataset.i = i;
   el.addEventListener("pointerdown", slotDown);
-  el.addEventListener("click", e => { if (e.detail === 0 && container === "bag" && !openChest) useItem(i); }); // keyboard activation
+  el.addEventListener("click", e => { if (e.detail === 0 && container === "bag" && !openChest) selectSlot(i); }); // keyboard activation
   return el;
 }
 const bagSlots = Array.from({ length: BAG_SIZE }, (_, i) => bagEl.appendChild(makeSlot("bag", i)));
@@ -1173,16 +1216,27 @@ function paintSlot(el, item, n) {
   el.innerHTML = item ? `<img src="${ITEM_ICON[item.type]}" alt="">` : "";
   el.setAttribute("aria-label", item ? itemName(item) : `空き（${n}）`);
 }
-function renderBag() { bagSlots.forEach((el, i) => paintSlot(el, bag[i], i + 1)); }
+function renderBag() {
+  if (heldItem != null && !bag[heldItem]) heldItem = null;
+  bagSlots.forEach((el, i) => {
+    paintSlot(el, bag[i], i + 1);
+    el.classList.toggle("cursor", focus === "bag" && i === bagCursor);
+    el.classList.toggle("holding", i === heldItem);
+  });
+  bagEl.classList.toggle("dim", focus === "map" && !openChest); // while a chest is open the bag is a drop target
+}
+document.getElementById("screen").addEventListener("pointerdown", () => { if (!busy()) setFocus("map"); });
 function renderChest() { if (openChest) chestSlots.forEach((el, i) => paintSlot(el, openChest.slots[i], i + 1)); }
 function openChestWindow(f) {
   openChest = f; keys.clear(); stickVec.x = stickVec.y = 0;
   renderChest();
   chestWin.hidden = false; shadeEl.hidden = false; view.classList.add("raised");
+  renderBag();
   msg.hidden = true; msgTimer = 0;
 }
 function closeChestWindow() {
   openChest = null; chestWin.hidden = true; shadeEl.hidden = true; view.classList.remove("raised");
+  renderBag();
   saveSoon();
 }
 document.getElementById("chestClose").addEventListener("click", closeChestWindow);
@@ -1224,7 +1278,7 @@ function slotUp(e) {
       }
     }
   } else if (e.type === "pointerup" && d.c === "bag" && !openChest && d.el.contains(document.elementFromPoint(e.clientX, e.clientY))) {
-    useItem(d.i);
+    selectSlot(d.i);
   }
 }
 addEventListener("pointerup", slotUp);
@@ -1360,26 +1414,27 @@ canvas.width = W; canvas.height = H; ctx.imageSmoothingEnabled = false;
 const BGS = { shop: drawBackground("shop"), workshop: drawBackground("workshop") }, COUNTER = makeCounter();
 const clockEl = document.getElementById("clock");
 
-const CONTEXT_LABEL = { lift: "持つ", place: "置く", bedIn: "布団に入る", bedOut: "布団から出る", pickup: "拾う", collect: "回収する" };
-const EXAMINE_LABEL = { examine: "調べる", open: "開く" };
+const CONTEXT_LABEL = { lift: "持つ", place: "置く", bedIn: "布団に入る", bedOut: "布団から出る", pickup: "拾う", collect: "回収する", hold: "手に持つ", stow: "しまう" };
+const EXAMINE_LABEL = { examine: "調べる", open: "開く", inspect: "調べる", put: "置く" };
 let lastUi = "";
 function updateUi() {
   const mode = contextMode();
   const [cx, cy] = cursorTile();
   const ng = mode === "place" && !canPlaceAt(cx, cy);
-  const t = held || world.inBed || outing.phase ? null : currentTarget();
+  const t = held || world.inBed || outing.phase || focus === "bag" ? null : currentTarget();
   const chip = outing.phase ? "薬草取りに出かけている" : world.inBed ? (world.mode === "game" ? "眠っている（時間が早く進んでいる）" : "眠っている")
-    : held ? `${heldLabel(held)}を運んでいる` : t ? `▶ ${t.name}` : "";
+    : focus === "bag" ? (bag[bagCursor] ? `▶ ${itemName(bag[bagCursor])}` : "（空き）")
+    : held ? `${heldLabel(held)}を運んでいる` : heldItem != null && bag[heldItem] ? `${itemName(bag[heldItem])}を手に持っている` : t ? `▶ ${t.name}` : "";
   const m = tod();
   const clock = `${Math.floor(world.clock / DAY) + 1}日目 ${String(Math.floor(m / 60)).padStart(2, "0")}:${String(Math.floor(m % 60)).padStart(2, "0")}　${ROOMS[world.room].name}`;
   const exMode = openChest ? null : examineMode();
-  const key = `${mode}|${ng}|${chip}|${exMode}|${!!openChest}|${clock}`;
+  const key = `${mode}|${ng}|${chip}|${exMode}|${!!openChest}|${clock}|${focus}`;
   if (key === lastUi) return;
   lastUi = key;
   ctxBtn.hidden = !mode || !!openChest;
   if (mode) ctxBtn.textContent = CONTEXT_LABEL[mode];
   ctxBtn.classList.toggle("ng", ng);
-  ctxBtn.classList.toggle("wide", mode === "bedIn" || mode === "bedOut" || mode === "collect");
+  ctxBtn.classList.toggle("wide", ["bedIn", "bedOut", "collect", "hold"].includes(mode));
   ctxBtn.setAttribute("aria-disabled", ng ? "true" : "false");
   act.hidden = !exMode;
   if (exMode) act.textContent = EXAMINE_LABEL[exMode];
@@ -1394,6 +1449,7 @@ function update(dt) {
   const v = inputVector();
   const mag = Math.hypot(v.x, v.y);
   hero.moving = mag > 0.01;
+  if (hero.moving && focus === "bag") setFocus("map");
   if (hero.moving) {
     if (Math.abs(v.x) > Math.abs(v.y)) hero.dir = v.x > 0 ? "right" : "left";
     else hero.dir = v.y > 0 ? "down" : "up";
@@ -1433,6 +1489,15 @@ function drawHero() {
   ctx.drawImage(spr, x - 12, sy);
   // carried furniture rests on the raised hands, above the hat
   if (held) ctx.drawImage(FURNITURE_ART[held.type].img, x - 12, sy + 4 - FURNITURE_ART[held.type].img.height);
+  // an item from the bag is hugged in front of the body, both hands round it
+  if (heldItem != null && bag[heldItem]) {
+    const ix = x - 8 + (hero.faceRight ? 1 : -1), iy = sy + 12; // below the eyes
+    ctx.drawImage(ITEM_SPR[bag[heldItem].type], ix, iy);
+    for (const hx of [ix + 1, ix + 13]) {
+      ctx.fillStyle = PIXEL_OUTLINE; ctx.fillRect(hx - 1, iy + 5, 4, 4);
+      ctx.fillStyle = HERO.palette.S; ctx.fillRect(hx, iy + 6, 2, 2);
+    }
+  }
 }
 
 function drawNoPlaceZone() {
@@ -1446,7 +1511,7 @@ function drawNoPlaceZone() {
 }
 
 function drawCursor(time) {
-  if (world.inBed || outing.phase) return;
+  if (world.inBed || outing.phase || focus === "bag") return;
   const [cx, cy] = cursorTile();
   const x = cx * T, y = cy * T;
   const pulse = (Math.sin(time * 6) + 1) / 2;
@@ -1506,6 +1571,7 @@ function render(time) {
   const tint = filterAt(m);
   if (tint) { ctx.fillStyle = tint; ctx.fillRect(0, 0, W, H); }
   drawCursor(time);
+  if (focus === "bag") { ctx.fillStyle = "rgba(0,0,0,0.45)"; ctx.fillRect(0, 0, W, H); }
   if (fade > 0) { ctx.fillStyle = `rgba(18,14,20,${fade.toFixed(3)})`; ctx.fillRect(0, 0, W, H); }
 }
 
