@@ -167,6 +167,9 @@ body {
 .seg button:focus-visible, #optClose:focus-visible { outline: 3px solid var(--ink); outline-offset: -3px; }
 .desc { margin: 0; font-size: 13px; line-height: 1.6; color: var(--muted); }
 .meta { margin: 0; font-size: 12px; line-height: 1.7; color: var(--muted); border-top: 1px solid var(--line); padding-top: 10px; }
+#resetClock { font: inherit; font-size: 15px; padding: 10px; background: var(--line); color: var(--ink); border: 2px solid var(--line); cursor: pointer; }
+#resetClock.armed { background: var(--ng); border-color: var(--ng); color: #fff; }
+#resetClock:focus-visible { outline: 3px solid var(--ink); outline-offset: -3px; }
 #optClose { font: inherit; font-size: 15px; padding: 10px; background: var(--line); color: var(--ink); border: 0; cursor: pointer; }
 @media (orientation: landscape) {
   #controls { position: absolute; inset: auto 0 0 0; height: 60%; background: none; border: 0; pointer-events: none; }
@@ -228,6 +231,11 @@ body {
         <button type="button" role="radio" data-mode="game" aria-checked="false">ゲーム</button>
       </div>
       <p class="desc" id="modeDesc"></p>
+    </div>
+    <div class="opt">
+      <div class="opt-label">時刻</div>
+      <button id="resetClock" type="button">時刻をリセット</button>
+      <p class="desc" id="resetDesc"></p>
     </div>
     <p class="meta"><span id="awayInfo"></span><br><span id="saveInfo"></span></p>
     <button id="optClose" type="button">閉じる</button>
@@ -981,8 +989,15 @@ function currentTarget() { const [cx, cy] = cursorTile(); return targetAt(cx, cy
 
 // Can the carried furniture go down on this tile right now?
 function canPlaceAt(tx, ty) {
-  if (!isFloor(tx, ty, world.room) || furnitureAt(tx, ty) || groundAt(tx, ty) || routeBlocked.has(`${tx},${ty}`)) return false;
-  return !circleHitsTile(hero.x, hero.y, tx, ty); // not on top of the hero
+  return isFloor(tx, ty, world.room) && !furnitureAt(tx, ty) && !groundAt(tx, ty) && !routeBlocked.has(`${tx},${ty}`);
+}
+// After something is put down where the hero partly stands: keep her centre in her own tile, far enough
+// from its edges that she touches nothing outside it. Her own tile is always free, so this never ends in a wall.
+function nudgeHeroClear() {
+  if (circleFree(hero.x, hero.y)) return;
+  const [tx, ty] = heroTile();
+  hero.x = clamp(hero.x, tx * T + HB.r, tx * T + T - HB.r);
+  hero.y = clamp(hero.y - HB.cy, ty * T + HB.r, ty * T + T - HB.r) + HB.cy;
 }
 
 // ---------------------------------------------------------------- actions
@@ -1050,7 +1065,9 @@ function placeFurniture() {
     else say("ここには置けない。", "床の空いているマスにしか置けない");
     return;
   }
-  held.room = world.room; held.tx = cx; held.ty = cy; held.held = false; held = null; flash = 0.25; saveSoon();
+  held.room = world.room; held.tx = cx; held.ty = cy; held.held = false; held = null; flash = 0.25;
+  nudgeHeroClear();
+  saveSoon();
 }
 function enterBed() { world.inBed = true; msg.hidden = true; msgTimer = 0; saveSoon(); }
 function leaveBed() { world.inBed = false; placeHeroAtBedExit(); saveSoon(); }
@@ -1365,17 +1382,39 @@ function renderOptions() {
   document.getElementById("modeDesc").textContent = MODE_TEXT[world.mode];
   document.getElementById("awayInfo").textContent = world.awayMs == null ? "前回の記録：なし（はじめて起動）" : `前回の終了から：${formatSpan(world.awayMs)}`;
   document.getElementById("saveInfo").textContent = cloud.doc ? "保存先：この端末とアカウント" : "保存先：この端末";
+  document.getElementById("resetDesc").textContent = resetNote || (world.mode === "game"
+    ? "日付を1日目に戻し、時刻を朝6:00にします。設備の配置や持ち物はそのままです。"
+    : "日付を1日目に戻します。時刻は現実の時刻のままです。設備の配置や持ち物はそのままです。");
 }
+// "時刻をリセット": the first press arms it (red), the second resets. Only the date (and, in game mode, the hour) changes.
+const resetBtn = document.getElementById("resetClock");
+let resetNote = "";
+function disarmReset() { resetBtn.classList.remove("armed"); resetBtn.textContent = "時刻をリセット"; }
+function resetClock() {
+  const wasThisHalf = world.herb.half === halfDay();     // trips already made this half day still count
+  world.clock = world.mode === "game" ? 6 * 60 : realTOD();
+  lastRealMs = Date.now();
+  world.herb = wasThisHalf ? { half: halfDay(), count: world.herb.count } : { half: -1, count: 0 };
+  saveSoon(true);
+}
+resetBtn.addEventListener("click", () => {
+  if (!resetBtn.classList.contains("armed")) {
+    resetBtn.classList.add("armed"); resetBtn.textContent = "もう一度押してリセット";
+    return;
+  }
+  resetClock(); disarmReset();
+  resetNote = "リセットしました。"; renderOptions(); resetNote = "";
+});
 function formatSpan(ms) {
   const min = Math.floor(ms / 60000), d = Math.floor(min / 1440), h = Math.floor((min % 1440) / 60), m = min % 60;
   return d ? `${d}日${h}時間${m}分` : h ? `${h}時間${m}分` : `${m}分`;
 }
 function openOptions() { keys.clear(); renderOptions(); optionsEl.hidden = false; modeButtons.find(b => b.dataset.mode === world.mode).focus(); }
-function closeOptions() { optionsEl.hidden = true; gear.focus(); }
+function closeOptions() { optionsEl.hidden = true; disarmReset(); gear.focus(); }
 gear.addEventListener("click", openOptions);
 document.getElementById("optClose").addEventListener("click", closeOptions);
 optionsEl.addEventListener("pointerdown", e => { if (e.target === optionsEl) closeOptions(); });
-modeButtons.forEach(b => b.addEventListener("click", () => { setMode(b.dataset.mode); renderOptions(); }));
+modeButtons.forEach(b => b.addEventListener("click", () => { setMode(b.dataset.mode); disarmReset(); renderOptions(); }));
 
 // ---------------------------------------------------------------- saving (this device always; the account too when available)
 const SAVE_KEY = "MagicalToolAtelier.save.v1"; // the key stays; the data inside carries its own version
