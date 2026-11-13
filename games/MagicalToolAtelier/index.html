@@ -94,9 +94,16 @@ body {
   box-shadow: 0 0 0 2px var(--bg); padding: 8px 12px; font-size: 15px; line-height: 1.5;
   transition: opacity .2s; pointer-events: none;
 }
-#msg small { display: block; color: var(--muted); font-size: 13px; }
+#msg small, #info small { display: block; color: var(--muted); font-size: 13px; }
+#info {
+  position: absolute; left: 4%; right: 4%; bottom: 3%; pointer-events: none; z-index: 1;
+  background: color-mix(in srgb, var(--bg) 92%, transparent); border: 2px solid var(--ink); box-shadow: 0 0 0 2px var(--bg);
+  padding: 8px 12px; font-size: 15px; line-height: 1.5;
+}
+.chest-info { min-height: 3em; font-size: 13px; line-height: 1.5; color: var(--ink); border-top: 1px solid var(--line); padding-top: 6px; }
+.chest-info small { display: block; color: var(--muted); font-size: 12px; }
 #target {
-  position: absolute; right: max(16px, env(safe-area-inset-right, 0px)); top: 12px; padding: 2px 8px; font-size: 13px; white-space: nowrap;
+  position: absolute; left: max(12px, env(safe-area-inset-left, 0px)); top: 10px; padding: 2px 8px; font-size: 13px; white-space: nowrap;
   background: color-mix(in srgb, var(--bg) 80%, transparent); border: 1px solid var(--line); color: var(--gold);
   pointer-events: none;
 }
@@ -114,23 +121,20 @@ body {
   border: 2px solid var(--muted); background: color-mix(in srgb, var(--navy) 45%, transparent); pointer-events: none; }
 #knob { position: absolute; left: 50%; top: 50%; width: 48px; height: 48px; margin: -24px 0 0 -24px; border-radius: 50%;
   background: var(--ink); opacity: .85; }
-#act {
-  position: absolute; right: max(28px, env(safe-area-inset-right, 0px)); top: 50%; transform: translateY(-50%);
-  width: 96px; height: 96px; border-radius: 50%; border: 3px solid var(--gold); background: var(--navy);
-  color: var(--ink); font-family: var(--font-ui); font-size: 18px; cursor: pointer; touch-action: none;
+/* A and B buttons: fixed size and place; long labels shrink instead (fitLabel) */
+.pbtn {
+  position: absolute; width: 84px; height: 84px; border-radius: 50%; padding: 0; overflow: hidden;
+  display: grid; place-items: center; font-family: var(--font-ui); color: var(--ink); cursor: pointer; touch-action: none;
 }
-#carry {
-  position: absolute; right: calc(max(28px, env(safe-area-inset-right, 0px)) + 112px); top: 50%; transform: translateY(-50%);
-  width: 76px; height: 76px; border-radius: 50%; border: 3px solid var(--ink); background: var(--line);
-  color: var(--ink); font-family: var(--font-ui); font-size: 16px; cursor: pointer; touch-action: none;
-}
-#carry.ng { border-color: var(--ng); color: var(--muted); }
-#act:active, #act.on, #carry.on { background: var(--gold); color: var(--bg); }
-#carry.ng.on { background: var(--line); color: var(--muted); }
-#act:disabled { border-color: var(--line); color: var(--muted); background: var(--panel); }
-#act:focus-visible, #carry:focus-visible { outline: 3px solid var(--ink); outline-offset: 3px; }
+.pbtn span { display: inline-block; white-space: nowrap; font-size: 18px; line-height: 1; }
+#act { right: max(20px, env(safe-area-inset-right, 0px)); bottom: 34px; border: 3px solid var(--gold); background: var(--navy); }
+#carry { right: calc(max(20px, env(safe-area-inset-right, 0px)) + 78px); bottom: 98px; border: 3px solid var(--ink); background: var(--line); }
+#act.on, #carry.on { background: var(--gold); color: var(--bg); }
+#act.ng, #carry.ng { border-color: var(--ng); color: var(--muted); }
+#act.ng.on, #carry.ng.on { background: var(--line); color: var(--muted); }
+#act.idle, #carry.idle { background: transparent; border: 2px dashed var(--line); cursor: default; }
+.pbtn:focus-visible { outline: 3px solid var(--ink); outline-offset: 3px; }
 #keys { position: absolute; left: 8px; right: 8px; bottom: 8px; font-size: 11px; color: var(--muted); text-align: center; }
-#carry.wide { width: 108px; height: 60px; border-radius: 30px; padding: 0; font-size: 14px; white-space: nowrap; right: calc(max(28px, env(safe-area-inset-right, 0px)) + 108px); }
 #hud {
   position: absolute; left: max(12px, env(safe-area-inset-left, 0px)); top: max(10px, env(safe-area-inset-top, 0px));
   font-size: 15px; color: var(--ink); background: color-mix(in srgb, var(--bg) 70%, transparent);
@@ -169,7 +173,7 @@ body {
   #pad { width: 35%; pointer-events: auto; }
   #act, #carry { pointer-events: auto; }
   #padHint, #keys { opacity: .6; }
-  #target { top: auto; bottom: calc(50% + 64px); right: max(16px, env(safe-area-inset-right, 0px)); }
+  #target { top: auto; bottom: 196px; left: auto; right: max(16px, env(safe-area-inset-right, 0px)); }
   #keys { position: fixed; left: max(12px, env(safe-area-inset-left, 0px)); right: auto; top: 56px; bottom: auto; text-align: left; max-width: 22%; }
 }
 @media (prefers-reduced-motion: reduce) { #msg { transition: none; } }
@@ -186,11 +190,13 @@ body {
     <div id="screen">
       <canvas id="game" width="312" height="288" aria-label="お店と工房"></canvas>
       <div id="msg" hidden></div>
+      <div id="info" hidden></div>
       <div id="outTimer" hidden></div>
       <div id="chestWin" hidden>
         <div class="chest-panel" role="dialog" aria-labelledby="chestTitle">
           <div class="chest-head"><span id="chestTitle">宝箱</span><button id="chestClose" type="button" aria-label="閉じる">×</button></div>
           <div id="chestGrid"></div>
+          <div class="chest-info" id="chestInfo"></div>
         </div>
       </div>
     </div>
@@ -198,9 +204,9 @@ body {
   <div id="controls">
     <div id="pad"><div id="padHint">ドラッグで<br>移動</div><div id="stick" hidden><div id="knob"></div></div></div>
     <div id="target" hidden></div>
-    <button id="carry" type="button" hidden>持つ</button>
-    <button id="act" type="button" hidden>調べる</button>
-    <div id="keys">矢印・WASD：移動　Space：調べる　X：中央のボタン　1〜5：持ち物</div>
+    <button id="carry" class="pbtn idle" type="button" aria-label="Bボタン"><span></span></button>
+    <button id="act" class="pbtn idle" type="button" aria-label="Aボタン"><span></span></button>
+    <div id="keys">WASD・十字キー：移動　Space：A　F：B　1〜5：持ち物</div>
   </div>
 </div>
 
@@ -910,36 +916,73 @@ const HERO_SPR = {};
 for (const k of Object.keys(HERO.frames)) HERO_SPR[k] = makeSprite(HERO.frames[k], HERO.palette);
 const WALK = ["walk1", "idle", "walk2", "idle"];
 const SPEED = 66;            // px per second
-const HB = { w: 12, h: 7 };  // feet hitbox, anchored at (x, y) = bottom centre
+const HB = { r: 6, cy: 4 };  // feet: a circle of radius r whose centre is cy px above (x, y), the bottom centre
 
 const hero = { x: 6.5 * T, y: 10 * T + 18, dir: "up", faceRight: true, moving: false, t: 0 };
 
-function boxTiles(x, y, fn) {
-  const x0 = Math.floor((x - HB.w / 2) / T), x1 = Math.floor((x + HB.w / 2 - 0.01) / T);
-  const y0 = Math.floor((y - HB.h) / T), y1 = Math.floor((y - 0.01) / T);
-  for (let ty = y0; ty <= y1; ty++) for (let tx = x0; tx <= x1; tx++) if (fn(tx, ty)) return true;
-  return false;
+const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
+function circleHitsTile(x, y, tx, ty) {
+  const cx = x, cy = y - HB.cy;
+  const nx = clamp(cx, tx * T, tx * T + T), ny = clamp(cy, ty * T, ty * T + T);
+  return (cx - nx) ** 2 + (cy - ny) ** 2 < HB.r ** 2;
 }
-const blocked = (x, y) => boxTiles(x, y, solidAt);
-function moveAxis(dx, dy) {
-  const dist = Math.abs(dx || dy), step = Math.sign(dx || dy);
-  let moved = 0;
-  while (moved < dist) {
-    const s = Math.min(1, dist - moved) * step;
-    const nx = hero.x + (dx ? s : 0), ny = hero.y + (dy ? s : 0);
-    if (blocked(nx, ny)) { if (boxTiles(nx, ny, passageBlocked)) warnPassage(); break; }
-    hero.x = nx; hero.y = ny; moved += Math.abs(s);
+// Move in 1px steps; after each step push the circle out of any solid tile it overlaps.
+// Pushing out along the nearest point makes the hero slide off corners and along walls.
+function moveHero(dx, dy) {
+  const steps = Math.ceil(Math.hypot(dx, dy));
+  for (let n = 0; n < steps; n++) {
+    hero.x += dx / steps; hero.y += dy / steps;
+    for (let pass = 0; pass < 3; pass++) {
+      let pushed = false;
+      const cy0 = hero.y - HB.cy;
+      for (let ty = Math.floor((cy0 - HB.r) / T); ty <= Math.floor((cy0 + HB.r) / T); ty++) {
+        for (let tx = Math.floor((hero.x - HB.r) / T); tx <= Math.floor((hero.x + HB.r) / T); tx++) {
+          if (!solidAt(tx, ty)) continue;
+          const cx = hero.x, cy = hero.y - HB.cy;
+          const nx = clamp(cx, tx * T, tx * T + T), ny = clamp(cy, ty * T, ty * T + T);
+          let ux = cx - nx, uy = cy - ny, d = Math.hypot(ux, uy);
+          if (d >= HB.r) continue;
+          if (d < 1e-6) { ux = -dx; uy = -dy; d = Math.hypot(ux, uy) || 1; } // centre inside: back out the way we came
+          hero.x += ux / d * (HB.r - d); hero.y += uy / d * (HB.r - d);
+          pushed = true;
+          if (passageBlocked(tx, ty)) warnPassage();
+        }
+      }
+      if (!pushed) break;
+    }
+  }
+}
+function circleFree(x, y) {
+  const cy = y - HB.cy;
+  for (let ty = Math.floor((cy - HB.r) / T); ty <= Math.floor((cy + HB.r) / T); ty++)
+    for (let tx = Math.floor((x - HB.r) / T); tx <= Math.floor((x + HB.r) / T); tx++)
+      if (solidAt(tx, ty) && circleHitsTile(x, y, tx, ty)) return false;
+  return true;
+}
+// Walking straight into the edge of an obstacle that is only a few px in the way: step sideways round it.
+function walk(dx, dy) {
+  const x0 = hero.x, y0 = hero.y, want = Math.hypot(dx, dy);
+  moveHero(dx, dy);
+  if (!want || Math.hypot(hero.x - x0, hero.y - y0) > want * 0.3) return;
+  const ux = dx / want, uy = dy / want;
+  if (Math.abs(ux) > 0.25 && Math.abs(uy) > 0.25) return; // diagonal input already slides
+  const px = -uy, py = ux;
+  for (let side = 1; side <= 12; side++) for (const sg of [1, -1]) {
+    if (circleFree(hero.x + px * side * sg + ux * 2, hero.y + py * side * sg + uy * 2)) {
+      moveHero(px * sg * Math.min(want, side), py * sg * Math.min(want, side));
+      return;
+    }
   }
 }
 const DIRS = { up: [0, -1], down: [0, 1], left: [-1, 0], right: [1, 0] };
-function heroTile() { return [Math.floor(hero.x / T), Math.floor((hero.y - HB.h / 2) / T)]; }
+function heroTile() { return [Math.floor(hero.x / T), Math.floor((hero.y - HB.cy) / T)]; }
 function cursorTile() { const [tx, ty] = heroTile(), [dx, dy] = DIRS[hero.dir]; return [tx + dx, ty + dy]; }
 function currentTarget() { const [cx, cy] = cursorTile(); return targetAt(cx, cy); }
 
 // Can the carried furniture go down on this tile right now?
 function canPlaceAt(tx, ty) {
   if (!isFloor(tx, ty, world.room) || furnitureAt(tx, ty) || groundAt(tx, ty) || routeBlocked.has(`${tx},${ty}`)) return false;
-  return !boxTiles(hero.x, hero.y, (x, y) => x === tx && y === ty); // not on top of the hero
+  return !circleHitsTile(hero.x, hero.y, tx, ty); // not on top of the hero
 }
 
 // ---------------------------------------------------------------- actions
@@ -951,76 +994,68 @@ function say(line, note) {
   if (note) { const s = document.createElement("small"); s.textContent = note; msg.append(s); }
   msg.hidden = false; msg.style.opacity = 1; msgTimer = 2.6;
 }
-function examine() {
-  if (busy()) return;
-  const mode = examineMode();
-  if (mode === "inspect") { const it = bag[bagCursor]; say(`${itemName(it)}を調べた。`, ITEM_TYPES[it.type].note); return; }
-  if (mode === "put") return putHeldItem();
-  if (mode !== "examine" && mode !== "open") return;
-  const t = currentTarget();
-  if (!t) return;
+// ---- A and B buttons. A = the usual action and anything heading back towards the room;
+// B = anything heading from the room towards the bag (picking up, collecting, lifting, going to bed).
+function examineTarget(t) {
   flash = 0.25;
   if (t.kind === "chest") openChestWindow(t.furniture);
   else if (t.kind === "entrance") openChoice();
   else say(...ACTIONS[t.kind](t));
 }
-// The right button: shown only when there is something to examine or open.
-function examineMode() {
-  if (outing.phase) return null;
-  if (focus === "bag") return bag[bagCursor] ? "inspect" : null;
-  if (heldItem != null) return "put";
-  if (held || world.inBed) return null;
-  const t = currentTarget();
-  return !t ? null : t.kind === "chest" ? "open" : "examine";
-}
-// The middle button: what it does depends on the hero and the cursor.
-function contextMode() {
-  if (outing.phase) return null;
-  if (focus === "bag") return bag[bagCursor] && !held && !world.inBed ? "hold" : null;
-  if (world.inBed) return "bedOut";
-  if (held) return "place";
-  if (heldItem != null) return "stow";
-  const t = currentTarget();
-  if (t?.ground) return "pickup";
-  const f = t?.furniture;
-  if (!f) return null;
-  if (f.item) return "collect";
-  if (isMovable(f)) return "lift";
-  if (typeOf(f).kind === "bed") return "bedIn";
-  return null;
-}
-const bed = () => furniture.find(f => f.type === "bed");
-function contextAction() {
-  if (busy()) return;
-  const mode = contextMode();
-  if (mode === "hold") {
-    heldItem = bagCursor; focus = "map"; renderBag(); flash = 0.25;
-  } else if (mode === "stow") {
-    heldItem = null; renderBag();
-  } else if (mode === "pickup") {
-    const g = currentTarget().ground;
-    if (bagAdd(g.item)) { ground.splice(ground.indexOf(g), 1); flash = 0.25; saveSoon(); }
-  } else if (mode === "collect") {
-    const f = currentTarget().furniture;
-    if (bagAdd(f.item)) { f.item = null; flash = 0.25; saveSoon(); }
-  } else if (mode === "lift") {
-    held = currentTarget().furniture; held.held = true; computeRouteBlocked(); flash = 0.25; saveSoon();
-  } else if (mode === "place") {
-    const [cx, cy] = cursorTile();
-    if (!canPlaceAt(cx, cy)) {
-      if (routeBlocked.has(`${cx},${cy}`)) say("ここに置くと通り道がふさがってしまう。", "赤いマスに置くと、玄関や角どうしの行き来、商品棚の前に立つことができなくなる");
-      else say("ここには置けない。", "床の空いているマスにしか置けない");
-      return;
-    }
-    held.room = world.room; held.tx = cx; held.ty = cy; held.held = false; held = null; flash = 0.25; saveSoon();
-  } else if (mode === "bedIn") {
-    world.inBed = true; msg.hidden = true; msgTimer = 0; saveSoon();
-  } else if (mode === "bedOut") {
-    world.inBed = false;
-    placeHeroAtBedExit();
-    saveSoon();
+function buttonSpec() {
+  const r = { a: null, b: null };
+  if (outing.phase || busy()) return r;
+  if (focus === "bag") {
+    if (bag[bagCursor] && !held && !world.inBed) r.a = { label: "持つ", fn: holdFromBag };
+    return r;
   }
+  if (world.inBed) { r.a = { label: "布団から出る", fn: leaveBed }; return r; }
+  if (held) {
+    const [cx, cy] = cursorTile();
+    r.a = { label: "置く", fn: placeFurniture, ng: !canPlaceAt(cx, cy) };
+    return r;
+  }
+  if (heldItem != null) {
+    r.a = { label: "置く", fn: putHeldItem };
+    r.b = { label: "しまう", fn: stowItem };
+    return r;
+  }
+  const t = currentTarget();
+  if (!t) return r;
+  r.a = { label: t.kind === "chest" ? "開く" : "調べる", fn: () => examineTarget(t) };
+  if (t.ground) r.b = { label: "拾う", fn: () => pickUp(t.ground) };
+  const f = t.furniture;
+  if (f?.item) r.b = { label: "回収する", fn: () => collect(f) };
+  else if (f && isMovable(f)) r.b = { label: "動かす", fn: () => lift(f) };
+  else if (f && typeOf(f).kind === "bed") r.b = { label: "布団に入る", fn: enterBed };
+  return r;
 }
+function pressA() { if (!busy()) buttonSpec().a?.fn(); }
+function pressB() { if (!busy()) buttonSpec().b?.fn(); }
+
+const bed = () => furniture.find(f => f.type === "bed");
+// picking up puts the item in the hero's arms (it takes a bag slot); "しまう" then puts it away
+function pickUp(g) {
+  const slot = bag.indexOf(null);
+  if (slot < 0) { say("鞄がいっぱいだ。", "鞄を整理しないと……"); return; }
+  bag[slot] = g.item; ground.splice(ground.indexOf(g), 1);
+  heldItem = slot; renderBag(); flash = 0.25; saveSoon();
+}
+function collect(f) { if (bagAdd(f.item)) { f.item = null; flash = 0.25; saveSoon(); } }
+function lift(f) { held = f; held.held = true; computeRouteBlocked(); flash = 0.25; saveSoon(); }
+function placeFurniture() {
+  const [cx, cy] = cursorTile();
+  if (!canPlaceAt(cx, cy)) {
+    if (routeBlocked.has(`${cx},${cy}`)) say("ここに置くと通り道がふさがってしまう。", "赤いマスに置くと、玄関や角どうしの行き来、商品棚の前に立つことができなくなる");
+    else say("ここには置けない。", "床の空いているマスにしか置けない");
+    return;
+  }
+  held.room = world.room; held.tx = cx; held.ty = cy; held.held = false; held = null; flash = 0.25; saveSoon();
+}
+function enterBed() { world.inBed = true; msg.hidden = true; msgTimer = 0; saveSoon(); }
+function leaveBed() { world.inBed = false; placeHeroAtBedExit(); saveSoon(); }
+function holdFromBag() { heldItem = bagCursor; focus = "map"; renderBag(); flash = 0.25; }
+function stowItem() { heldItem = null; renderBag(); }
 function placeHeroAtBedExit() {
   const b = bed(), ex = FURNITURE_TYPES.bed.exit;
   world.room = b.room;
@@ -1142,8 +1177,8 @@ addEventListener("keydown", e => {
   if (k === "escape" && focus === "bag") { setFocus("map"); return; }
   if (["arrowup", "arrowdown", "arrowleft", "arrowright", "w", "a", "s", "d"].includes(k)) { keys.add(k); e.preventDefault(); }
   if (e.repeat) return;
-  if (k === " " || k === "enter" || k === "z" || k === "j") { examine(); e.preventDefault(); }
-  if (k === "x" || k === "k") { contextAction(); e.preventDefault(); }
+  if (k === " ") { pressA(); e.preventDefault(); }
+  if (k === "f") { pressB(); e.preventDefault(); }
 });
 addEventListener("keyup", e => keys.delete(e.key.toLowerCase()));
 addEventListener("blur", () => keys.clear());
@@ -1177,15 +1212,33 @@ const padEnd = e => {
 pad.addEventListener("pointerup", padEnd); pad.addEventListener("pointercancel", padEnd);
 
 function bindButton(el, fn) {
-  el.addEventListener("pointerdown", e => { e.preventDefault(); el.classList.add("on"); fn(); });
+  el.addEventListener("pointerdown", e => { e.preventDefault(); if (el.classList.contains("idle")) return; el.classList.add("on"); fn(); });
   const off = () => el.classList.remove("on");
   el.addEventListener("pointerup", off); el.addEventListener("pointerleave", off); el.addEventListener("pointercancel", off);
   el.addEventListener("keydown", e => { if (e.key === "Enter" || e.key === " ") e.stopPropagation(); });
   el.addEventListener("click", e => { if (e.detail === 0) fn(); });
 }
 const act = document.getElementById("act"), ctxBtn = document.getElementById("carry");
-bindButton(act, examine);
-bindButton(ctxBtn, contextAction);
+bindButton(act, pressA);
+bindButton(ctxBtn, pressB);
+// set a button's label, shrinking the text until it fits inside the fixed circle
+function setButton(el, spec) {
+  const label = spec ? spec.label : "";
+  if (el.dataset.label !== label) {
+    el.dataset.label = label;
+    const span = el.firstElementChild;
+    span.textContent = label;
+    let size = 18;
+    span.style.fontSize = size + "px";
+    const room = el.clientWidth * 0.8;
+    while (size > 9 && span.offsetWidth > room) span.style.fontSize = --size + "px";
+    el.setAttribute("aria-label", label ? `${el === act ? "A" : "B"}：${label}` : `${el === act ? "A" : "B"}（なし）`);
+  }
+  el.classList.toggle("idle", !spec);
+  el.classList.toggle("ng", !!spec?.ng);
+  el.disabled = !spec;
+  if (!spec) el.classList.remove("on");
+}
 
 function inputVector() {
   if (world.inBed || busy()) return { x: 0, y: 0 };
@@ -1226,6 +1279,13 @@ function renderBag() {
   bagEl.classList.toggle("dim", focus === "map" && !openChest); // while a chest is open the bag is a drop target
 }
 document.getElementById("screen").addEventListener("pointerdown", () => { if (!busy()) setFocus("map"); });
+const chestInfo = document.getElementById("chestInfo");
+function showChestInfo(item) {
+  chestInfo.innerHTML = "";
+  if (!item) return;
+  chestInfo.append(`[${itemName(item)}]`);
+  const n = document.createElement("small"); n.textContent = ITEM_TYPES[item.type].note; chestInfo.append(n);
+}
 function renderChest() { if (openChest) chestSlots.forEach((el, i) => paintSlot(el, openChest.slots[i], i + 1)); }
 function openChestWindow(f) {
   openChest = f; keys.clear(); stickVec.x = stickVec.y = 0;
@@ -1236,6 +1296,7 @@ function openChestWindow(f) {
 }
 function closeChestWindow() {
   openChest = null; chestWin.hidden = true; shadeEl.hidden = true; view.classList.remove("raised");
+  showChestInfo(null);
   renderBag();
   saveSoon();
 }
@@ -1252,10 +1313,11 @@ function slotDown(e) {
   const el = e.currentTarget;
   e.preventDefault();
   drag = { el, c: el.dataset.c, i: Number(el.dataset.i), id: e.pointerId, x0: e.clientX, y0: e.clientY, ghost: null };
+  showChestInfo(null);
 }
 addEventListener("pointermove", e => {
   if (!drag || e.pointerId !== drag.id) return;
-  if (!drag.ghost && openChest && slotItem(drag.c, drag.i) && Math.hypot(e.clientX - drag.x0, e.clientY - drag.y0) > 6) {
+  if (!drag.ghost && (openChest || drag.c === "bag") && slotItem(drag.c, drag.i) && Math.hypot(e.clientX - drag.x0, e.clientY - drag.y0) > 6) {
     drag.ghost = document.createElement("img");
     drag.ghost.className = "drag-ghost"; drag.ghost.alt = "";
     drag.ghost.src = ITEM_ICON[slotItem(drag.c, drag.i).type];
@@ -1269,16 +1331,22 @@ function slotUp(e) {
   if (d.ghost) {
     d.ghost.remove(); d.el.classList.remove("lifting");
     const to = e.type === "pointerup" ? document.elementFromPoint(e.clientX, e.clientY)?.closest(".slot") : null;
-    if (to && openChest) {
+    if (to && (openChest || to.dataset.c === "bag")) {
       const c2 = to.dataset.c, i2 = Number(to.dataset.i);
       if (c2 !== d.c || i2 !== d.i) {
         const a = slotItem(d.c, d.i), b = slotItem(c2, i2);
         setSlot(c2, i2, a); setSlot(d.c, d.i, b);
+        // the held item and the bag cursor follow the item they were on
+        if (d.c === "bag" && c2 === "bag") {
+          if (heldItem === d.i) heldItem = i2; else if (heldItem === i2) heldItem = d.i;
+          if (bagCursor === d.i) bagCursor = i2; else if (bagCursor === i2) bagCursor = d.i;
+        } else if (heldItem != null && ((d.c === "bag" && heldItem === d.i) || (c2 === "bag" && heldItem === i2))) heldItem = null;
         renderBag(); renderChest(); saveSoon();
       }
     }
-  } else if (e.type === "pointerup" && d.c === "bag" && !openChest && d.el.contains(document.elementFromPoint(e.clientX, e.clientY))) {
-    selectSlot(d.i);
+  } else if (e.type === "pointerup" && d.el.contains(document.elementFromPoint(e.clientX, e.clientY))) {
+    if (openChest) showChestInfo(slotItem(d.c, d.i)); // tap in the chest window: describe the item
+    else if (d.c === "bag") selectSlot(d.i);
   }
 }
 addEventListener("pointerup", slotUp);
@@ -1414,32 +1482,32 @@ canvas.width = W; canvas.height = H; ctx.imageSmoothingEnabled = false;
 const BGS = { shop: drawBackground("shop"), workshop: drawBackground("workshop") }, COUNTER = makeCounter();
 const clockEl = document.getElementById("clock");
 
-const CONTEXT_LABEL = { lift: "持つ", place: "置く", bedIn: "布団に入る", bedOut: "布団から出る", pickup: "拾う", collect: "回収する", hold: "手に持つ", stow: "しまう" };
-const EXAMINE_LABEL = { examine: "調べる", open: "開く", inspect: "調べる", put: "置く" };
+const infoEl = document.getElementById("info");
 let lastUi = "";
 function updateUi() {
-  const mode = contextMode();
-  const [cx, cy] = cursorTile();
-  const ng = mode === "place" && !canPlaceAt(cx, cy);
+  const spec = buttonSpec();
   const t = held || world.inBed || outing.phase || focus === "bag" ? null : currentTarget();
   const chip = outing.phase ? "薬草取りに出かけている" : world.inBed ? (world.mode === "game" ? "眠っている（時間が早く進んでいる）" : "眠っている")
-    : focus === "bag" ? (bag[bagCursor] ? `▶ ${itemName(bag[bagCursor])}` : "（空き）")
+    : focus === "bag" ? ""
     : held ? `${heldLabel(held)}を運んでいる` : heldItem != null && bag[heldItem] ? `${itemName(bag[heldItem])}を手に持っている` : t ? `▶ ${t.name}` : "";
   const m = tod();
   const clock = `${Math.floor(world.clock / DAY) + 1}日目 ${String(Math.floor(m / 60)).padStart(2, "0")}:${String(Math.floor(m % 60)).padStart(2, "0")}　${ROOMS[world.room].name}`;
-  const exMode = openChest ? null : examineMode();
-  const key = `${mode}|${ng}|${chip}|${exMode}|${!!openChest}|${clock}|${focus}`;
+  // bag focus: what the cursor is on, shown for as long as it stays there
+  const it = focus === "bag" && !busy() ? bag[bagCursor] : undefined;
+  const info = it === undefined ? "" : it ? `${itemName(it)}\n${ITEM_TYPES[it.type].note}` : "（空き）";
+  const key = `${spec.a?.label}|${spec.a?.ng}|${spec.b?.label}|${chip}|${clock}|${info}`;
   if (key === lastUi) return;
   lastUi = key;
-  ctxBtn.hidden = !mode || !!openChest;
-  if (mode) ctxBtn.textContent = CONTEXT_LABEL[mode];
-  ctxBtn.classList.toggle("ng", ng);
-  ctxBtn.classList.toggle("wide", ["bedIn", "bedOut", "collect", "hold"].includes(mode));
-  ctxBtn.setAttribute("aria-disabled", ng ? "true" : "false");
-  act.hidden = !exMode;
-  if (exMode) act.textContent = EXAMINE_LABEL[exMode];
+  setButton(act, spec.a); setButton(ctxBtn, spec.b);
   targetChip.textContent = chip; targetChip.hidden = !chip;
   clockEl.textContent = clock;
+  infoEl.hidden = !info;
+  if (info) {
+    infoEl.innerHTML = "";
+    if (it) { infoEl.append(`[${itemName(it)}]`); const n = document.createElement("small"); n.textContent = ITEM_TYPES[it.type].note; infoEl.append(n); }
+    else infoEl.append("（空き）");
+    msg.hidden = true; msgTimer = 0;
+  }
 }
 
 function update(dt) {
@@ -1454,8 +1522,7 @@ function update(dt) {
     if (Math.abs(v.x) > Math.abs(v.y)) hero.dir = v.x > 0 ? "right" : "left";
     else hero.dir = v.y > 0 ? "down" : "up";
     if (Math.abs(v.x) > 0.3) hero.faceRight = v.x > 0;
-    moveAxis(v.x * SPEED * dt, 0);
-    moveAxis(0, v.y * SPEED * dt);
+    walk(v.x * SPEED * dt, v.y * SPEED * dt);
     hero.t += dt;
     const [tx, ty] = heroTile();
     if (tileAt(tx, ty) === "P") enterRoom(ROOMS[world.room].other, ty);
@@ -1510,9 +1577,14 @@ function drawNoPlaceZone() {
   ctx.globalAlpha = 1;
 }
 
+let cursorKey = "", cursorMovedAt = 0;
 function drawCursor(time) {
-  if (world.inBed || outing.phase || focus === "bag") return;
+  if (world.inBed || outing.phase || focus === "bag") { cursorKey = ""; return; }
   const [cx, cy] = cursorTile();
+  const ckey = `${world.room}:${cx},${cy}`, now = performance.now();
+  if (ckey !== cursorKey || flash > 0) { cursorKey = ckey; cursorMovedAt = now; }
+  const idle = (now - cursorMovedAt) / 1000 - 2.5;
+  const fadeMul = idle <= 0 ? 1 : 1 - 0.85 * smooth(Math.min(1, idle / 0.35)); // down to 15%, quickly but smoothly
   const x = cx * T, y = cy * T;
   const pulse = (Math.sin(time * 6) + 1) / 2;
   let col, alpha, fill = null;
@@ -1520,7 +1592,7 @@ function drawCursor(time) {
     const ok = canPlaceAt(cx, cy);
     if (ok) { // ghost of the furniture where it would land
       const art = FURNITURE_ART[held.type];
-      ctx.globalAlpha = 0.45; ctx.drawImage(art.img, x, y - art.rise); ctx.globalAlpha = 1;
+      ctx.globalAlpha = 0.45 * fadeMul; ctx.drawImage(art.img, x, y - art.rise); ctx.globalAlpha = 1;
     }
     col = ok ? C.gold : C.ng; alpha = 0.8 + 0.2 * pulse; fill = ok ? null : C.ng;
   } else {
@@ -1528,7 +1600,7 @@ function drawCursor(time) {
     col = has ? C.gold : "#f3e9d6"; alpha = has ? 0.75 + 0.25 * pulse : 0.45; fill = has ? C.gold : null;
   }
   if (flash > 0) col = "#ffffff";
-  ctx.globalAlpha = alpha;
+  ctx.globalAlpha = alpha * fadeMul;
   // corner brackets: dark backing one pixel inside, then the colour line
   const L = 6, E = T - 1;
   const corners = [[x, y, 1, 1], [x + E, y, -1, 1], [x, y + E, 1, -1], [x + E, y + E, -1, -1]];
@@ -1540,7 +1612,7 @@ function drawCursor(time) {
       ctx.fillRect(ox, sy > 0 ? oy : oy - L + 1, 1, L);
     }
   }
-  if (fill) { ctx.globalAlpha = 0.12 + 0.1 * pulse; ctx.fillStyle = fill; ctx.fillRect(x + 1, y + 1, T - 2, T - 2); }
+  if (fill) { ctx.globalAlpha = (0.12 + 0.1 * pulse) * fadeMul; ctx.fillStyle = fill; ctx.fillRect(x + 1, y + 1, T - 2, T - 2); }
   ctx.globalAlpha = 1;
 }
 
