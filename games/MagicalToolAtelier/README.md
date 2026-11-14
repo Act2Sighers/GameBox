@@ -3,6 +3,7 @@
 魔法道具店を営む少女のゲーム。段階的に実装中。
 
 - `index.html` — ゲーム本体（Artifactとして公開）
+- `DESIGN.md` — 目指す姿（全体像・薬草と作り方）。細部を決めるときの基準
 - `art/hero.py` — 主人公のドット絵（フォーマットB）。`python3 -B art/build.py` で `index.html` に反映し、`art/hero_sheet.png` を更新
 
 ## 実装済みの仕様
