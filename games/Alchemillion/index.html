@@ -1,0 +1,677 @@
+<title>Alchemillion</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=DotGothic16&display=swap">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/matter-js/0.19.0/matter.min.js"></script>
+<style>
+/* Layout: one column. Balance on top, the six-slot catalog, then the lab (physics board) filling the rest. */
+:root {
+  color-scheme: dark;
+  --bg: #15111f;        /* night in the academy */
+  --panel: #221b30;     /* catalog shelf */
+  --line: #3a3050;
+  --ink: #efe6d2;       /* parchment */
+  --muted: #a598b8;
+  --gold: #e8b84a;      /* coins */
+  --minus: #f0566a;     /* negative balance */
+  --arcane: #9a6ae0;    /* the portal */
+  --font: "DotGothic16", "Hiragino Kaku Gothic ProN", "Yu Gothic", system-ui, sans-serif;
+}
+html, body { height: 100%; }
+[hidden] { display: none !important; }
+body {
+  margin: 0; background: var(--bg); color: var(--ink); font-family: var(--font);
+  overflow: hidden; touch-action: none; user-select: none; -webkit-user-select: none; -webkit-touch-callout: none;
+  -webkit-tap-highlight-color: transparent;
+}
+#app {
+  position: fixed; inset: 0; display: flex; flex-direction: column; align-items: center; gap: 8px;
+  padding-top: max(8px, env(safe-area-inset-top, 0px)); padding-bottom: max(8px, env(safe-area-inset-bottom, 0px));
+  padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px));
+}
+header { width: 100%; max-width: 480px; display: flex; align-items: baseline; justify-content: space-between; gap: 12px; }
+.title { font-size: 15px; letter-spacing: .08em; color: var(--muted); }
+.title b { color: var(--gold); font-weight: normal; }
+#balance { font-size: 26px; font-variant-numeric: tabular-nums; color: var(--ink); white-space: nowrap; }
+#balance small { font-size: 15px; color: var(--muted); margin-left: 2px; }
+#balance.minus { color: var(--minus); }
+#notice {
+  width: 100%; max-width: 480px; font-size: 13px; line-height: 1.4; padding: 6px 10px;
+  border: 1px solid var(--gold); color: var(--gold); background: color-mix(in srgb, var(--gold) 10%, transparent);
+}
+#catalog { width: 100%; max-width: 480px; display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); gap: 6px; }
+.card {
+  font: inherit; color: var(--ink); background: var(--panel); border: 2px solid var(--line); padding: 4px 2px 5px;
+  display: grid; justify-items: center; gap: 2px; cursor: pointer; min-width: 0; touch-action: manipulation;
+}
+.card canvas { width: 40px; height: 40px; image-rendering: pixelated; }
+.card .nm { font-size: 10px; line-height: 1.15; height: 2.3em; overflow: hidden; text-align: center; color: var(--muted); }
+.card .pr { font-size: 11px; color: var(--gold); font-variant-numeric: tabular-nums; }
+.card:hover:not(:disabled) { border-color: var(--gold); }
+.card:active:not(:disabled) { transform: translateY(1px); }
+.card:disabled { opacity: .4; cursor: not-allowed; }
+.card:focus-visible { outline: 2px solid var(--ink); outline-offset: 1px; }
+.card.slide-l { animation: slideL .18s ease-out; }
+.card.slide-r { animation: slideR .18s ease-out; }
+.card.fresh { animation: fresh .3s ease-out; }
+@keyframes slideL { from { transform: translateX(calc(-100% - 6px)); } }
+@keyframes slideR { from { transform: translateX(calc(100% + 6px)); } }
+@keyframes fresh { from { opacity: 0; transform: scale(.7); } }
+#labWrap { flex: 1; min-height: 0; width: 100%; display: flex; align-items: flex-start; justify-content: center; }
+#labBox { position: relative; }
+#lab { display: block; width: 100%; height: 100%; image-rendering: pixelated; border: 2px solid var(--line); box-sizing: content-box; touch-action: none; cursor: grab; }
+#toasts { position: absolute; left: 6px; right: 6px; top: 26px; display: grid; gap: 4px; justify-items: center; pointer-events: none; }
+.toast { font-size: 12px; padding: 3px 8px; background: color-mix(in srgb, var(--bg) 82%, transparent); border: 1px solid var(--line); animation: toast 2.2s forwards; white-space: nowrap; }
+.toast.react { border-color: var(--arcane); color: #e2d2ff; }
+.toast.sell { border-color: var(--gold); color: var(--gold); }
+@keyframes toast { 0% { opacity: 0; transform: translateY(-4px); } 10%, 75% { opacity: 1; transform: none; } 100% { opacity: 0; } }
+#blocked { position: absolute; left: 6px; right: 6px; bottom: 8px; text-align: center; font-size: 12px; color: var(--minus); background: color-mix(in srgb, var(--bg) 85%, transparent); padding: 4px; pointer-events: none; }
+#hint { font-size: 11px; color: var(--muted); text-align: center; }
+.overlay {
+  position: fixed; inset: 0; z-index: 10; display: grid; place-items: center; background: color-mix(in srgb, var(--bg) 80%, transparent);
+  padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px));
+}
+.sheet { width: min(380px, 100%); max-height: calc(100% - 32px); overflow: auto; background: var(--panel); border: 2px solid var(--gold); box-shadow: 0 0 0 3px var(--bg); padding: 18px; display: grid; gap: 12px; }
+.sheet h1 { margin: 0; font-size: 28px; font-weight: normal; letter-spacing: .06em; color: var(--gold); text-wrap: balance; }
+.sheet h1 span { color: var(--ink); }
+.sheet h2 { margin: 0; font-size: 20px; font-weight: normal; color: var(--gold); }
+.sheet p { margin: 0; font-size: 14px; line-height: 1.7; }
+.sheet ul { margin: 0; padding-left: 1.2em; font-size: 13px; line-height: 1.7; color: var(--muted); }
+.btn { font: inherit; font-size: 16px; padding: 12px; background: var(--gold); color: var(--bg); border: 0; cursor: pointer; }
+.btn.sub { background: var(--line); color: var(--ink); font-size: 14px; padding: 9px; }
+.btn:focus-visible { outline: 3px solid var(--ink); outline-offset: 2px; }
+dl.stats { margin: 0; display: grid; grid-template-columns: auto 1fr; gap: 6px 12px; font-size: 13px; }
+dl.stats dt { color: var(--muted); }
+dl.stats dd { margin: 0; text-align: right; font-variant-numeric: tabular-nums; }
+@media (prefers-reduced-motion: reduce) { .card, .toast { animation: none !important; } }
+</style>
+
+<div id="app">
+  <header>
+    <div class="title"><b>Alche</b>million</div>
+    <div id="balance">0.00<small>M</small></div>
+  </header>
+  <div id="notice" hidden>研究室のモノを全部売れば、残高が 1,000,000M に届きます</div>
+  <div id="catalog" role="toolbar" aria-label="カタログ"></div>
+  <div id="labWrap">
+    <div id="labBox">
+      <canvas id="lab" width="180" height="250" aria-label="研究室"></canvas>
+      <div id="toasts" aria-live="polite"></div>
+      <div id="blocked" hidden>ポータルがふさがっています。モノを売って空けてください</div>
+    </div>
+  </div>
+  <div id="hint">研究室を左右にドラッグ：ポータルを動かす　モノをタップ：売る</div>
+</div>
+
+<div id="intro" class="overlay">
+  <div class="sheet">
+    <h1><span>Alche</span>million</h1>
+    <p>魔法学校の研究生であるあなたは、わけあって大金を集めなければならなくなった。けれど、こつこつ働くのは面倒だ。</p>
+    <p>そこで思いついた。研究室に材料と道具を放り込み、勝手に混ざって高価なモノに化けたところを売ればいい。目標は 1,000,000 マニ。</p>
+    <ul>
+      <li>カタログのモノをタップすると買って、上のポータルから落とす</li>
+      <li>研究室のモノは、相性のいいモノと触れると反応して、より高価なモノになる</li>
+      <li>研究室をドラッグするとポータルが動く。モノをタップすると売れる</li>
+      <li>残高はマイナスになっても大丈夫</li>
+    </ul>
+    <button class="btn" id="startBtn" type="button">研究をはじめる</button>
+  </div>
+</div>
+
+<div id="result" class="overlay" hidden>
+  <div class="sheet">
+    <h2>1,000,000 マニ達成！</h2>
+    <p>研究費は十分に集まった。研究室には、ほんのり硫黄の匂いが残っている。</p>
+    <dl class="stats" id="stats"></dl>
+    <button class="btn" id="againBtn" type="button">もう一度遊ぶ</button>
+  </div>
+</div>
+
+<script>
+"use strict";
+const { Engine, Bodies, Body, Composite, Events, Query } = Matter;
+
+// ---------------------------------------------------------------- money (integer cents)
+const GOAL = 100000000; // 1,000,000.00M
+const M = v => Math.round(v * 100);
+const fmt = c => (c / 100).toLocaleString("ja-JP", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+
+// ---------------------------------------------------------------- pixel art helpers (drawn at 1x, outlined automatically)
+const OUTLINE = "#1a1420";
+function art(w, h, draw) {
+  const c = document.createElement("canvas"); c.width = w + 2; c.height = h + 2;
+  const g = c.getContext("2d");
+  const d = {
+    r(x, y, ww, hh, col) { g.fillStyle = col; g.fillRect(x + 1, y + 1, ww, hh); },
+    p(x, y, col) { g.fillStyle = col; g.fillRect(x + 1, y + 1, 1, 1); },
+    ell(cx, cy, rx, ry, col) {
+      g.fillStyle = col;
+      for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) {
+        const dx = (x + 0.5 - cx) / rx, dy = (y + 0.5 - cy) / ry;
+        if (dx * dx + dy * dy <= 1) g.fillRect(x + 1, y + 1, 1, 1);
+      }
+    },
+  };
+  draw(d, w, h);
+  // 1px outline around everything drawn
+  const img = g.getImageData(0, 0, w + 2, h + 2), a = img.data, W2 = w + 2, H2 = h + 2;
+  const solid = (x, y) => x >= 0 && y >= 0 && x < W2 && y < H2 && a[(y * W2 + x) * 4 + 3] > 0;
+  const add = [];
+  for (let y = 0; y < H2; y++) for (let x = 0; x < W2; x++) if (!solid(x, y) && (solid(x + 1, y) || solid(x - 1, y) || solid(x, y + 1) || solid(x, y - 1))) add.push([x, y]);
+  g.fillStyle = OUTLINE; for (const [x, y] of add) g.fillRect(x, y, 1, 1);
+  return c;
+}
+// a corked bottle: liquid colour, light glint
+function bottle(d, w, h, liquid, level, cork = "#a0703c") {
+  const neck = Math.max(2, Math.round(w / 3)), nx = Math.round((w - neck) / 2);
+  d.r(nx, 0, neck, 2, cork);
+  d.r(nx, 2, neck, 2, "#cfe4ec");
+  d.ell(w / 2, h - (w / 2), w / 2, w / 2, "#cfe4ec");
+  d.r(1, 4, w - 2, h - 4 - w / 2, "#cfe4ec");
+  const top = Math.round(h - level);
+  for (let y = top; y < h; y++) for (let x = 0; x < w; x++) {
+    const cy = h - w / 2, dx = (x + 0.5 - w / 2) / (w / 2 - 1), dy = y + 0.5 > cy ? (y + 0.5 - cy) / (w / 2 - 1) : 0;
+    if (x >= 1 && x < w - 1 && dx * dx + dy * dy <= 1) d.p(x, y, liquid);
+  }
+  d.r(1, top, w - 2, 1, "#ffffff55");
+  d.r(2, 5, 1, Math.max(2, h - 10), "#ffffffcc");
+}
+
+// ---------------------------------------------------------------- the things (モノ)
+// shape: "circle" (w = h = diameter) or "rect". buy = catalog price (only catalog things), sell = sale price.
+const THINGS = {
+  sand: { name: "砂袋", w: 16, h: 14, shape: "rect", buy: 3, sell: 1.5, draw: d => {
+    d.ell(8, 9, 8, 5.5, "#c9a66b"); d.r(5, 0, 6, 5, "#c9a66b"); d.r(4, 4, 8, 1, "#7a5a30"); d.r(6, 0, 4, 1, "#e0c48c");
+    for (const [x, y] of [[4, 8], [9, 10], [12, 7], [6, 11], [11, 12]]) d.p(x, y, "#e8d39a");
+    d.r(2, 7, 1, 4, "#a5844e"); } },
+  water: { name: "湧き水の瓶", w: 10, h: 15, shape: "rect", buy: 3, sell: 1.5, draw: (d, w, h) => bottle(d, w, h, "#4a90d0", 8) },
+  wood: { name: "薪", w: 28, h: 9, shape: "rect", buy: 4, sell: 2, draw: d => {
+    d.r(0, 1, 26, 7, "#8a5a30"); d.r(0, 1, 26, 1, "#a87240"); d.r(3, 4, 7, 1, "#6a4220"); d.r(13, 3, 8, 1, "#6a4220"); d.r(9, 6, 6, 1, "#6a4220");
+    d.ell(26.5, 4.5, 1.6, 4, "#d8b080"); d.p(26, 4, "#a87240"); d.p(19, 0, "#5d8a4e"); } },
+  clay: { name: "粘土", w: 16, h: 11, shape: "rect", buy: 4, sell: 2, draw: d => {
+    d.ell(8, 6.5, 8, 4.8, "#b0674a"); d.ell(6, 4, 4, 2.5, "#c27a5a"); d.r(10, 7, 3, 1, "#8e4e36"); d.p(4, 8, "#8e4e36"); } },
+  herb: { name: "薬草", w: 14, h: 14, shape: "circle", buy: 5, sell: 2.5, draw: d => {
+    d.ell(7, 7, 6.5, 6.5, "#4f8a43"); d.ell(5, 5, 3, 3.5, "#6fae5a"); d.ell(9.5, 6, 2.5, 3, "#6fae5a"); d.ell(7, 10, 3, 2, "#5d9a4e");
+    d.r(7, 3, 1, 8, "#3f6e35"); d.p(4, 4, "#a8e090"); d.p(10, 4, "#a8e090"); } },
+  salt: { name: "岩塩", w: 12, h: 10, shape: "rect", buy: 6, sell: 3, draw: d => {
+    d.r(1, 1, 10, 8, "#e8c8c8"); d.r(0, 3, 12, 5, "#e8c8c8"); d.r(2, 1, 4, 3, "#f8e8ea"); d.r(7, 5, 4, 3, "#c8a0a8"); d.p(3, 6, "#ffffff"); } },
+  ironScrap: { name: "鉄くず", w: 14, h: 10, shape: "rect", buy: 6, sell: 3, draw: d => {
+    d.r(0, 3, 9, 6, "#7a7f88"); d.r(5, 0, 8, 6, "#8a8f99"); d.r(9, 5, 5, 4, "#6a6f78"); d.r(6, 1, 5, 1, "#b0b5c0");
+    d.p(2, 5, "#a0583a"); d.p(3, 6, "#a0583a"); d.p(11, 3, "#a0583a"); d.r(10, 7, 2, 1, "#a0583a"); } },
+  flint: { name: "火打ち石", w: 10, h: 9, shape: "rect", buy: 8, sell: 4, tool: true, draw: d => {
+    d.ell(5, 5, 5, 4, "#4a4a55"); d.r(2, 2, 3, 2, "#8a8a96"); d.p(1, 5, "#33333c"); d.p(8, 1, "#ffd860"); d.p(9, 0, "#fff0a0"); } },
+  mushroom: { name: "光るキノコ", w: 13, h: 14, shape: "rect", buy: 9, sell: 4.5, draw: d => {
+    d.r(5, 7, 3, 7, "#e8e0c8"); d.r(4, 13, 5, 1, "#c8c0a8"); d.ell(6.5, 5, 6.5, 5, "#3fb8b0"); d.ell(6.5, 4, 5, 3.5, "#6ad8d0");
+    d.p(4, 3, "#d8fff8"); d.p(8, 2, "#d8fff8"); d.p(9, 5, "#d8fff8"); d.r(2, 7, 9, 1, "#2a8a84"); } },
+  sulfur: { name: "硫黄", w: 13, h: 12, shape: "rect", buy: 10, sell: 5, draw: d => {
+    d.ell(6, 7, 6, 4.8, "#e8d040"); d.ell(8, 4, 4, 3.5, "#f2e070"); d.r(2, 8, 3, 2, "#b8a020"); d.r(8, 9, 3, 1, "#b8a020"); d.p(7, 3, "#fff8c0"); } },
+  lead: { name: "鉛の塊", w: 16, h: 9, shape: "rect", buy: 12, sell: 6, draw: d => {
+    d.r(2, 0, 12, 3, "#8a90a0"); d.r(0, 3, 16, 6, "#6a7080"); d.r(1, 4, 14, 1, "#7a8090"); d.r(3, 1, 8, 1, "#a8aebd"); d.r(0, 8, 16, 1, "#565c6a"); } },
+  mercury: { name: "水銀の瓶", w: 11, h: 16, shape: "rect", buy: 14, sell: 7, draw: (d, w, h) => { bottle(d, w, h, "#b8bccc", 7, "#5a4a6a"); d.r(4, 12, 3, 1, "#f0f2ff"); } },
+  hammer: { name: "金槌", w: 22, h: 11, shape: "rect", buy: 15, sell: 7.5, tool: true, draw: d => {
+    d.r(0, 4, 16, 3, "#a87240"); d.r(0, 4, 16, 1, "#c89058"); d.r(15, 0, 7, 11, "#8a8f99"); d.r(15, 0, 7, 2, "#b0b5c0"); d.r(14, 3, 1, 5, "#6a6f78"); } },
+  campfire: { name: "焚き火", w: 24, h: 16, shape: "rect", sell: 10, tool: true, draw: d => {
+    d.r(1, 12, 22, 3, "#8a5a30"); d.r(3, 10, 18, 2, "#6a4220"); d.r(0, 14, 24, 2, "#5a3a20");
+    d.ell(12, 8, 6, 6, "#e86a30"); d.ell(12, 9, 4, 4, "#f8a840"); d.ell(12, 10, 2, 2.5, "#fff0a0"); d.p(8, 2, "#f8a840"); d.p(15, 1, "#e86a30"); } },
+  glass: { name: "ガラス玉", w: 12, h: 12, shape: "circle", sell: 12, draw: d => {
+    d.ell(6, 6, 6, 6, "#9fd0e0"); d.ell(6, 6, 4.5, 4.5, "#bfe6f0"); d.r(3, 3, 2, 2, "#ffffff"); d.p(8, 8, "#7ab0c8"); } },
+  brick: { name: "レンガ", w: 16, h: 8, shape: "rect", sell: 10, draw: d => {
+    d.r(0, 0, 16, 8, "#b0503a"); d.r(0, 0, 16, 1, "#c86a50"); d.r(0, 7, 16, 1, "#8a3a28"); d.p(4, 3, "#d88a6a"); d.p(11, 4, "#d88a6a"); d.p(7, 5, "#8a3a28"); } },
+  ingot: { name: "鉄塊", w: 18, h: 9, shape: "rect", sell: 20, draw: d => {
+    d.r(2, 0, 14, 3, "#b8bec8"); d.r(0, 3, 18, 6, "#9aa0aa"); d.r(1, 3, 16, 1, "#c8ced8"); d.r(0, 8, 18, 1, "#7a808a"); d.r(4, 1, 6, 1, "#e0e4ec"); } },
+  tonic: { name: "薬草水", w: 11, h: 16, shape: "rect", sell: 14, draw: (d, w, h) => { bottle(d, w, h, "#8ac070", 8); d.p(4, 12, "#4f8a43"); d.p(6, 13, "#4f8a43"); } },
+  healing: { name: "回復薬", w: 12, h: 17, shape: "rect", sell: 40, draw: (d, w, h) => { bottle(d, w, h, "#d84a5a", 10, "#c89058"); d.r(5, 12, 2, 1, "#ffb0b8"); } },
+  mana: { name: "魔力の薬", w: 12, h: 17, shape: "rect", sell: 120, draw: (d, w, h) => { bottle(d, w, h, "#4a6ad8", 10, "#c89058"); d.p(4, 11, "#c0d0ff"); d.p(7, 13, "#c0d0ff"); d.p(6, 9, "#ffffff"); } },
+  elixir: { name: "エリクサー", w: 13, h: 20, shape: "rect", sell: 400, draw: (d, w, h) => {
+    bottle(d, w, h, "#f0b030", 12, "#e8b84a"); d.r(4, 2, 5, 1, "#e8b84a"); d.p(5, 12, "#fff0b0"); d.p(8, 15, "#fff0b0"); d.p(6, 17, "#ffffff"); } },
+  cinnabar: { name: "辰砂", w: 12, h: 12, shape: "circle", sell: 45, draw: d => {
+    d.ell(6, 6, 6, 6, "#a82830"); d.r(2, 3, 4, 4, "#d8404a"); d.r(6, 6, 4, 3, "#c8323a"); d.p(3, 3, "#ff9aa0"); d.p(8, 9, "#781820"); } },
+  tria: { name: "三原質の結晶", w: 14, h: 16, shape: "rect", sell: 110, draw: d => {
+    d.r(3, 0, 8, 16, "#e8e0d0"); d.r(1, 3, 12, 10, "#e8e0d0"); d.r(1, 3, 4, 10, "#d84a4a"); d.r(9, 3, 4, 10, "#e8d040"); d.r(3, 0, 2, 3, "#d84a4a"); d.r(9, 0, 2, 3, "#e8d040");
+    d.r(9, 13, 2, 3, "#e8d040"); d.r(3, 13, 2, 3, "#d84a4a"); d.r(6, 2, 2, 5, "#ffffff"); } },
+  furnace: { name: "錬金炉", w: 30, h: 32, shape: "rect", sell: 60, tool: true, draw: d => {
+    d.r(20, 0, 6, 8, "#8a3a28"); d.r(20, 0, 6, 1, "#b0503a");
+    d.r(0, 8, 30, 24, "#b0503a");
+    for (let y = 8; y < 32; y += 4) { d.r(0, y, 30, 1, "#8a3a28"); for (let x = (y / 4) % 2 ? 0 : 4; x < 30; x += 8) d.r(x, y + 1, 1, 3, "#8a3a28"); }
+    d.ell(15, 22, 8, 7, "#3a1a14"); d.ell(15, 24, 6, 5, "#e86a30"); d.ell(15, 25, 3.5, 3, "#f8c050"); d.r(0, 30, 30, 2, "#6a2a1c"); } },
+  redPowder: { name: "赤の粉末", w: 14, h: 12, shape: "rect", sell: 300, draw: d => {
+    d.ell(7, 9, 7, 3, "#d8dce8"); d.ell(7, 8.5, 5.5, 2, "#b8bccc"); d.ell(7, 6.5, 4.5, 4, "#d0303a"); d.ell(6, 5, 2, 1.5, "#ff6a70"); d.p(9, 7, "#901820"); } },
+  philosopherStone: { name: "賢者の石", w: 14, h: 14, shape: "circle", sell: 2500, tool: true, draw: d => {
+    d.ell(7, 7, 7, 7, "#a0102e"); d.ell(7, 7, 5.5, 5.5, "#e01848"); d.r(3, 6, 8, 2, "#c01038"); d.r(6, 3, 2, 8, "#c01038");
+    d.ell(5, 5, 2, 1.5, "#ff8aa0"); d.p(4, 4, "#ffffff"); d.p(10, 10, "#700820"); } },
+  silver: { name: "銀塊", w: 18, h: 9, shape: "rect", sell: 600, draw: d => {
+    d.r(2, 0, 14, 3, "#eef0f8"); d.r(0, 3, 18, 6, "#c8ccd8"); d.r(1, 3, 16, 1, "#ffffff"); d.r(0, 8, 18, 1, "#9aa0b0"); d.r(12, 5, 3, 1, "#ffffff"); } },
+  gold: { name: "金塊", w: 18, h: 9, shape: "rect", sell: 1500, draw: d => {
+    d.r(2, 0, 14, 3, "#ffe070"); d.r(0, 3, 18, 6, "#f0b830"); d.r(1, 3, 16, 1, "#fff0a8"); d.r(0, 8, 18, 1, "#b88018"); d.r(4, 1, 6, 1, "#ffffff"); d.r(12, 5, 3, 1, "#fff8d0"); } },
+  crown: { name: "黄金の冠", w: 22, h: 14, shape: "rect", sell: 5000, draw: d => {
+    d.r(1, 7, 20, 7, "#f0b830"); d.r(1, 12, 20, 2, "#b88018");
+    for (const x of [1, 6, 10, 15, 20]) d.r(x - 1 + (x === 1 ? 1 : 0), x === 10 ? 0 : 2, x === 10 ? 2 : 2, x === 10 ? 7 : 5, "#f0b830");
+    d.p(10, 0, "#ffe070"); d.r(4, 9, 2, 2, "#d0303a"); d.r(10, 9, 2, 2, "#3a6ad8"); d.r(16, 9, 2, 2, "#30a050"); d.r(2, 7, 18, 1, "#fff0a8"); } },
+  sword: { name: "鉄の剣", w: 34, h: 7, shape: "rect", sell: 60, draw: d => {
+    d.r(0, 2, 6, 3, "#8a5a30"); d.r(0, 2, 1, 3, "#c8a050"); d.r(6, 0, 2, 7, "#c8a050"); d.r(8, 2, 24, 3, "#b8bec8"); d.r(8, 2, 24, 1, "#e0e4ec"); d.r(32, 3, 2, 1, "#b8bec8"); } },
+  mirror: { name: "鏡", w: 16, h: 20, shape: "rect", sell: 50, draw: d => {
+    d.ell(8, 9, 8, 9, "#a8acb8"); d.ell(8, 9, 6, 7, "#c8e0f0"); d.r(4, 4, 2, 6, "#ffffff"); d.r(6, 18, 4, 2, "#a8acb8"); d.p(10, 12, "#8ab0d0"); } },
+  crystalBall: { name: "水晶玉", w: 20, h: 20, shape: "circle", sell: 450, draw: d => {
+    d.r(5, 16, 10, 4, "#8a5a30"); d.r(4, 18, 12, 2, "#6a4220");
+    d.ell(10, 9, 9, 9, "#6a4ab0"); d.ell(10, 9, 7.5, 7.5, "#9a7ae0"); d.ell(11, 10, 4, 4, "#c8b0ff"); d.ell(7, 6, 2, 2, "#ffffff"); d.p(13, 12, "#ffffff"); } },
+  elixirOfLife: { name: "命の霊薬", w: 14, h: 24, shape: "rect", sell: 15000, draw: (d, w, h) => {
+    bottle(d, w, h, "#ff7ac8", 15, "#e8b84a"); d.r(4, 2, 6, 1, "#e8b84a"); d.ell(7, 18, 3, 3, "#ffd0f0"); d.p(5, 11, "#ffffff"); d.p(9, 14, "#fff0a0"); d.p(4, 16, "#fff0a0"); } },
+  royalCrown: { name: "王者の宝冠", w: 28, h: 20, shape: "rect", sell: 30000, draw: d => {
+    d.r(1, 10, 26, 10, "#f0b830"); d.r(1, 17, 26, 3, "#b88018");
+    for (const [x, t] of [[1, 4], [7, 2], [12, 6], [19, 2], [25, 4]]) d.r(x, t, 2, 10 - t, "#f0b830");
+    d.ell(14, 6, 4.5, 4.5, "#9a7ae0"); d.ell(13, 5, 1.5, 1.5, "#ffffff");
+    d.r(4, 12, 3, 3, "#d0303a"); d.r(21, 12, 3, 3, "#30a050"); d.r(12, 12, 4, 3, "#e01848"); d.r(2, 10, 24, 1, "#fff0a8"); } },
+};
+for (const [id, t] of Object.entries(THINGS)) {
+  t.id = id; t.img = art(t.w, t.h, t.draw);
+  t.sellC = M(t.sell); if (t.buy) t.buyC = M(t.buy);
+}
+// catalog list with how often each appears
+const CATALOG_POOL = { sand: 10, water: 10, wood: 10, clay: 9, herb: 10, salt: 7, ironScrap: 8, flint: 5, mushroom: 6, sulfur: 6, lead: 7, mercury: 6, hammer: 3 };
+
+// ---------------------------------------------------------------- reactions
+// fuse: A + B -> C (both replaced by one).  improve: target touching tool -> target becomes result, tool stays.
+const FUSE = [
+  ["herb", "water", "tonic"], ["healing", "mushroom", "mana"], ["mana", "healing", "elixir"],
+  ["sulfur", "mercury", "cinnabar"], ["cinnabar", "salt", "tria"], ["brick", "brick", "furnace"],
+  ["redPowder", "elixir", "philosopherStone"], ["glass", "mercury", "mirror"], ["glass", "mana", "crystalBall"],
+  ["crown", "crystalBall", "royalCrown"],
+];
+const IMPROVE = [ // [target, tool, result]
+  ["wood", "flint", "campfire"], ["sand", "campfire", "glass"], ["clay", "campfire", "brick"], ["ironScrap", "campfire", "ingot"],
+  ["tonic", "campfire", "healing"], ["tria", "furnace", "redPowder"], ["ingot", "philosopherStone", "silver"],
+  ["lead", "philosopherStone", "gold"], ["elixir", "philosopherStone", "elixirOfLife"], ["ingot", "hammer", "sword"], ["gold", "hammer", "crown"],
+];
+const pairKey = (a, b) => a < b ? `${a}|${b}` : `${b}|${a}`;
+const REACTIONS = new Map();
+for (const [a, b, c] of FUSE) REACTIONS.set(pairKey(a, b), { kind: "fuse", out: c });
+for (const [t, tool, out] of IMPROVE) REACTIONS.set(pairKey(t, tool), { kind: "improve", target: t, tool, out });
+
+// ---------------------------------------------------------------- state
+const LAB_W = 180, LAB_H = 250, PORTAL_Y = 7, PORTAL_HALF = 14, FLOOR_H = 8;
+let S; // everything that is saved
+function freshState() {
+  return {
+    balance: M(50), catalog: [], portalX: LAB_W / 2, things: [], playMs: 0, cleared: false,
+    stats: { buyTotal: 0, buyCount: 0, sellTotal: 0, sellCount: 0, maxOnBoard: 0, best: null, minBalance: M(50) },
+  };
+}
+function randomCatalogThing() {
+  const entries = Object.entries(CATALOG_POOL), sum = entries.reduce((s, [, w]) => s + w, 0);
+  let r = Math.random() * sum;
+  for (const [id, w] of entries) { r -= w; if (r <= 0) return id; }
+  return entries[0][0];
+}
+
+// ---------------------------------------------------------------- physics
+const engine = Engine.create({ positionIterations: 10, velocityIterations: 8 });
+engine.gravity.scale = 0.0007;
+const world = engine.world;
+const wallOpts = { isStatic: true, friction: 0.5, label: "wall" };
+Composite.add(world, [
+  Bodies.rectangle(LAB_W / 2, LAB_H - FLOOR_H / 2 + 20, LAB_W + 80, FLOOR_H + 40, wallOpts),
+  Bodies.rectangle(-20, LAB_H / 2 - 100, 40, LAB_H + 300, wallOpts),
+  Bodies.rectangle(LAB_W + 20, LAB_H / 2 - 100, 40, LAB_H + 300, wallOpts),
+]);
+const items = new Set();
+function spawn(type, x, y, angle = 0, vel = null) {
+  const t = THINGS[type];
+  const opts = { friction: 0.6, frictionStatic: 0.8, frictionAir: 0.01, restitution: 0.05, density: 0.002, label: "item" };
+  const b = t.shape === "circle" ? Bodies.circle(x, y, t.w / 2, opts)
+    : Bodies.rectangle(x, y, t.w, t.h, { ...opts, chamfer: { radius: Math.min(2, t.h / 3) } });
+  b.thing = type; b.born = performance.now();
+  Body.setAngle(b, angle);
+  if (vel) Body.setVelocity(b, vel);
+  Composite.add(world, b); items.add(b);
+  noteThing(type);
+  S.stats.maxOnBoard = Math.max(S.stats.maxOnBoard, items.size);
+  return b;
+}
+function removeItem(b) { Composite.remove(world, b); items.delete(b); }
+function noteThing(type) {
+  const v = THINGS[type].sellC;
+  if (!S.stats.best || v > S.stats.best.value) S.stats.best = { type, value: v };
+}
+
+// contacts collected during the step, resolved after it
+let touching = [];
+Events.on(engine, "collisionStart", e => { for (const p of e.pairs) touching.push(p); });
+Events.on(engine, "collisionActive", e => { for (const p of e.pairs) touching.push(p); });
+function resolveReactions() {
+  const used = new Set();
+  for (const p of touching) {
+    const a = p.bodyA.parent, b = p.bodyB.parent;
+    if (a.label !== "item" || b.label !== "item" || used.has(a) || used.has(b) || !items.has(a) || !items.has(b)) continue;
+    const r = REACTIONS.get(pairKey(a.thing, b.thing));
+    if (!r) continue;
+    if (r.kind === "fuse") {
+      const x = (a.position.x + b.position.x) / 2, y = (a.position.y + b.position.y) / 2;
+      const v = { x: (a.velocity.x + b.velocity.x) / 2, y: (a.velocity.y + b.velocity.y) / 2 };
+      used.add(a); used.add(b); removeItem(a); removeItem(b);
+      const n = spawn(r.out, x, y, 0, v); used.add(n);
+      burst(x, y, "#c8a8ff"); toast(`${THINGS[a.thing].name} ＋ ${THINGS[b.thing].name} → ${THINGS[r.out].name}`, "react");
+    } else {
+      const target = a.thing === r.target && b.thing === r.tool ? a : b, tool = target === a ? b : a;
+      used.add(target);
+      const { x, y } = target.position;
+      removeItem(target);
+      const n = spawn(r.out, x, y, target.angle, target.velocity); used.add(n);
+      burst(x, y, "#ffd870"); toast(`${THINGS[r.target].name} → ${THINGS[r.out].name}（${THINGS[tool.thing].name}）`, "react");
+    }
+  }
+  touching = [];
+}
+
+// ---------------------------------------------------------------- particles
+const sparks = [];
+function burst(x, y, col) {
+  for (let i = 0; i < 14; i++) {
+    const a = Math.random() * Math.PI * 2, s = 20 + Math.random() * 40;
+    sparks.push({ x, y, vx: Math.cos(a) * s, vy: Math.sin(a) * s, life: 0.5 + Math.random() * 0.3, col });
+  }
+}
+
+// ---------------------------------------------------------------- catalog
+const catalogEl = document.getElementById("catalog");
+const cards = [];
+for (let i = 0; i < 6; i++) {
+  const b = document.createElement("button");
+  b.type = "button"; b.className = "card";
+  b.innerHTML = `<canvas width="40" height="40"></canvas><span class="nm"></span><span class="pr"></span>`;
+  b.addEventListener("click", () => buy(i));
+  catalogEl.append(b); cards.push(b);
+}
+function iconOf(type, cv) {
+  const g = cv.getContext("2d"), img = THINGS[type].img;
+  g.clearRect(0, 0, 40, 40); g.imageSmoothingEnabled = false;
+  const k = Math.max(1, Math.min(2, Math.floor(36 / Math.max(img.width, img.height)) || 1));
+  const s = Math.min(k, 36 / Math.max(img.width, img.height));
+  const w = img.width * s, h = img.height * s;
+  g.drawImage(img, Math.round((40 - w) / 2), Math.round((40 - h) / 2), w, h);
+}
+function renderCatalog(anim) {
+  cards.forEach((c, i) => {
+    const t = THINGS[S.catalog[i]];
+    iconOf(t.id, c.querySelector("canvas"));
+    c.querySelector(".nm").textContent = t.name;
+    c.querySelector(".pr").textContent = fmt(t.buyC) + "M";
+    c.setAttribute("aria-label", `${t.name}を買う（${fmt(t.buyC)}マニ）`);
+    c.classList.remove("slide-l", "slide-r", "fresh");
+    if (anim && anim[i]) { void c.offsetWidth; c.classList.add(anim[i]); }
+  });
+}
+function buy(i) {
+  if (S.cleared || portalBlocked().blocked) return;
+  const type = S.catalog[i], t = THINGS[type];
+  S.balance -= t.buyC;
+  S.stats.buyTotal += t.buyC; S.stats.buyCount++;
+  S.stats.minBalance = Math.min(S.stats.minBalance, S.balance);
+  const x = Math.max(t.w / 2 + 1, Math.min(LAB_W - t.w / 2 - 1, S.portalX));
+  spawn(type, x, PORTAL_Y + t.h / 2 - 2);
+  // close the gap from the nearer end and add a new thing there
+  const anim = Array(6).fill(null);
+  if (i <= 2) {
+    for (let k = i; k > 0; k--) { S.catalog[k] = S.catalog[k - 1]; anim[k] = "slide-l"; }
+    S.catalog[0] = randomCatalogThing(); anim[0] = "fresh";
+  } else {
+    for (let k = i; k < 5; k++) { S.catalog[k] = S.catalog[k + 1]; anim[k] = "slide-r"; }
+    S.catalog[5] = randomCatalogThing(); anim[5] = "fresh";
+  }
+  renderCatalog(anim); renderBalance(); save();
+}
+
+// ---------------------------------------------------------------- selling, portal, blocking
+function sell(b) {
+  const t = THINGS[b.thing];
+  removeItem(b);
+  S.balance += t.sellC;
+  S.stats.sellTotal += t.sellC; S.stats.sellCount++;
+  toast(`${t.name}を売った　＋${fmt(t.sellC)}M`, "sell");
+  burst(b.position.x, b.position.y, "#e8b84a");
+  renderBalance(); save();
+  if (S.balance >= GOAL && !S.cleared) clear();
+}
+// The portal is blocked when something that has settled reaches into the portal's area.
+function portalBlocked() {
+  const now = performance.now(), x0 = S.portalX - PORTAL_HALF, x1 = S.portalX + PORTAL_HALF, y1 = PORTAL_Y + 9;
+  let blocked = false, stuck = false;
+  for (const b of items) {
+    const bb = b.bounds;
+    if (bb.max.x < x0 || bb.min.x > x1 || bb.min.y > y1) continue;
+    blocked = true;
+    if (now - b.born > 1500) stuck = true; // not just something falling out of it right now
+  }
+  return { blocked, stuck };
+}
+
+// ---------------------------------------------------------------- input on the lab: drag = move the portal, tap = sell
+const lab = document.getElementById("lab"), labCtx = lab.getContext("2d");
+let press = null;
+const toWorld = e => { const r = lab.getBoundingClientRect(); return { x: (e.clientX - r.left) / r.width * LAB_W, y: (e.clientY - r.top) / r.height * LAB_H }; };
+lab.addEventListener("pointerdown", e => {
+  if (press) return;
+  lab.setPointerCapture(e.pointerId);
+  press = { id: e.pointerId, x0: e.clientX, portal0: S.portalX, drag: false };
+});
+lab.addEventListener("pointermove", e => {
+  if (!press || e.pointerId !== press.id) return;
+  const dx = e.clientX - press.x0;
+  if (!press.drag && Math.abs(dx) > 6) press.drag = true;
+  if (press.drag) {
+    const r = lab.getBoundingClientRect();
+    S.portalX = Math.max(PORTAL_HALF, Math.min(LAB_W - PORTAL_HALF, press.portal0 + dx / r.width * LAB_W));
+  }
+});
+function pressEnd(e) {
+  if (!press || e.pointerId !== press.id) return;
+  const p = press; press = null;
+  if (p.drag) { save(); return; }
+  if (e.type !== "pointerup" || S.cleared) return;
+  const w = toWorld(e);
+  let hit = Query.point([...items], w)[0];
+  if (!hit) { // small things: take the nearest one within a few dots
+    let best = 7;
+    for (const b of items) {
+      const d = Math.hypot(b.position.x - w.x, b.position.y - w.y) - Math.min(THINGS[b.thing].w, THINGS[b.thing].h) / 2;
+      if (d < best) { best = d; hit = b; }
+    }
+  }
+  if (hit) sell(hit);
+}
+lab.addEventListener("pointerup", pressEnd);
+lab.addEventListener("pointercancel", pressEnd);
+
+// ---------------------------------------------------------------- HUD
+const balanceEl = document.getElementById("balance"), noticeEl = document.getElementById("notice"), blockedEl = document.getElementById("blocked");
+function renderBalance() {
+  balanceEl.innerHTML = `${fmt(S.balance)}<small>M</small>`;
+  balanceEl.classList.toggle("minus", S.balance < 0);
+}
+const toastsEl = document.getElementById("toasts");
+function toast(text, kind) {
+  const el = document.createElement("div");
+  el.className = `toast ${kind}`; el.textContent = text;
+  toastsEl.prepend(el);
+  while (toastsEl.children.length > 3) toastsEl.lastChild.remove();
+  setTimeout(() => el.remove(), 2300);
+}
+let lastHud = "";
+function updateHud() {
+  const pb = portalBlocked();
+  let worth = S.balance;
+  for (const b of items) worth += THINGS[b.thing].sellC;
+  const key = `${pb.blocked}|${pb.stuck}|${worth >= GOAL && !S.cleared}`;
+  if (key === lastHud) return;
+  lastHud = key;
+  cards.forEach(c => c.disabled = pb.blocked || S.cleared);
+  blockedEl.hidden = !pb.stuck;
+  noticeEl.hidden = !(worth >= GOAL && !S.cleared);
+}
+
+// ---------------------------------------------------------------- drawing the lab
+const BG = (() => {
+  const c = document.createElement("canvas"); c.width = LAB_W; c.height = LAB_H;
+  const g = c.getContext("2d");
+  g.fillStyle = "#2a2238"; g.fillRect(0, 0, LAB_W, LAB_H);
+  for (let y = 0; y < LAB_H; y += 8) {
+    g.fillStyle = "#231c30"; g.fillRect(0, y, LAB_W, 1);
+    for (let x = (y / 8) % 2 ? 0 : 10; x < LAB_W; x += 20) g.fillRect(x, y, 1, 8);
+    for (let x = (y / 8) % 2 ? 1 : 11; x < LAB_W; x += 20) { g.fillStyle = "#30283f"; g.fillRect(x, y + 1, 18, 1); g.fillStyle = "#231c30"; }
+  }
+  // a faint magic circle on the back wall
+  g.strokeStyle = "rgba(154,106,224,0.16)"; g.lineWidth = 1;
+  for (const r of [46, 38]) { g.beginPath(); g.arc(LAB_W / 2, LAB_H * 0.55, r, 0, Math.PI * 2); g.stroke(); }
+  g.beginPath(); // pentagram
+  for (let i = 0; i <= 5; i++) { const a = -Math.PI / 2 + i * Math.PI * 4 / 5; g.lineTo(LAB_W / 2 + Math.cos(a) * 38, LAB_H * 0.55 + Math.sin(a) * 38); }
+  g.stroke();
+  // floor boards
+  g.fillStyle = "#5a3e2a"; g.fillRect(0, LAB_H - FLOOR_H, LAB_W, FLOOR_H);
+  g.fillStyle = "#7a5638"; g.fillRect(0, LAB_H - FLOOR_H, LAB_W, 1);
+  g.fillStyle = "#4a3222"; for (let x = 13; x < LAB_W; x += 30) g.fillRect(x, LAB_H - FLOOR_H + 1, 1, FLOOR_H - 1);
+  return c;
+})();
+function drawPortal(time, blocked) {
+  const x = Math.round(S.portalX), y = PORTAL_Y;
+  const glow = blocked ? "rgba(240,86,106," : "rgba(154,106,224,";
+  labCtx.fillStyle = glow + "0.18)"; labCtx.fillRect(x - PORTAL_HALF - 2, 0, PORTAL_HALF * 2 + 4, y + 7);
+  for (let i = 0; i < 3; i++) {
+    const rx = PORTAL_HALF - i * 4, ry = 4 - i;
+    labCtx.fillStyle = blocked ? ["#7a2a3a", "#c8405a", "#ffb0c0"][i] : ["#4a2a7a", "#8a5ad8", "#e2d2ff"][i];
+    for (let dx = -rx; dx <= rx; dx++) {
+      const h = Math.round(ry * Math.sqrt(Math.max(0, 1 - (dx / (rx + 0.5)) ** 2)));
+      if (h > 0) labCtx.fillRect(x + dx, y - h, 1, h * 2);
+    }
+  }
+  // swirling motes
+  labCtx.fillStyle = blocked ? "#ffd0d8" : "#ffffff";
+  for (let i = 0; i < 4; i++) {
+    const a = time * 3 + i * Math.PI / 2;
+    labCtx.fillRect(Math.round(x + Math.cos(a) * (PORTAL_HALF - 3)), Math.round(y + Math.sin(a) * 2.5), 1, 1);
+  }
+  // drop guide
+  labCtx.fillStyle = blocked ? "rgba(240,86,106,0.18)" : "rgba(226,210,255,0.10)";
+  for (let yy = y + 6; yy < LAB_H - FLOOR_H; yy += 6) labCtx.fillRect(x, yy, 1, 3);
+}
+function render(time, dt) {
+  labCtx.imageSmoothingEnabled = false;
+  labCtx.drawImage(BG, 0, 0);
+  const pb = portalBlocked();
+  drawPortal(time, pb.stuck);
+  for (const b of items) {
+    const img = THINGS[b.thing].img;
+    labCtx.save();
+    labCtx.translate(b.position.x, b.position.y); labCtx.rotate(b.angle);
+    labCtx.drawImage(img, -img.width / 2, -img.height / 2);
+    labCtx.restore();
+  }
+  for (let i = sparks.length - 1; i >= 0; i--) {
+    const s = sparks[i];
+    s.life -= dt; s.x += s.vx * dt; s.y += s.vy * dt; s.vx *= 0.92; s.vy *= 0.92;
+    if (s.life <= 0) { sparks.splice(i, 1); continue; }
+    labCtx.globalAlpha = Math.min(1, s.life * 2); labCtx.fillStyle = s.col;
+    labCtx.fillRect(Math.round(s.x), Math.round(s.y), 1, 1);
+  }
+  labCtx.globalAlpha = 1;
+}
+
+// ---------------------------------------------------------------- loop
+let last = performance.now(), acc = 0, running = false;
+const STEP = 1000 / 60;
+function frame(now) {
+  const dtMs = Math.min(100, now - last); last = now;
+  if (running && !S.cleared) S.playMs += dtMs;
+  acc += dtMs;
+  let steps = 0;
+  while (acc >= STEP && steps < 4) {
+    Engine.update(engine, STEP); resolveReactions(); acc -= STEP; steps++;
+    // round things slowly stop rolling instead of crossing the whole floor
+    for (const b of items) if (b.circleRadius) Body.setAngularVelocity(b, b.angularVelocity * 0.97);
+  }
+  if (steps === 4) acc = 0;
+  // things that fell through somehow are recovered as sold-for-nothing
+  for (const b of items) if (b.position.y > LAB_H + 60) removeItem(b);
+  render(now / 1000, dtMs / 1000);
+  updateHud();
+  requestAnimationFrame(frame);
+}
+
+// ---------------------------------------------------------------- clear and result
+function fmtTime(ms) {
+  const s = Math.floor(ms / 1000), h = Math.floor(s / 3600), m = Math.floor(s % 3600 / 60), sec = s % 60;
+  return h ? `${h}時間${m}分${sec}秒` : `${m}分${sec}秒`;
+}
+function clear() {
+  S.cleared = true; save();
+  const st = S.stats;
+  const rows = [
+    ["クリアまでの時間", fmtTime(S.playMs)],
+    ["購入", `${st.buyCount}個　${fmt(st.buyTotal)}M`],
+    ["売却", `${st.sellCount}個　${fmt(st.sellTotal)}M`],
+    ["研究室に同時にあったモノ", `最大 ${st.maxOnBoard}個`],
+    ["いちばん高価だったモノ", st.best ? `${THINGS[st.best.type].name}（${fmt(st.best.value)}M）` : "－"],
+    ["残高の最低値", `${fmt(st.minBalance)}M`],
+  ];
+  const dl = document.getElementById("stats"); dl.innerHTML = "";
+  for (const [k, v] of rows) { const dt = document.createElement("dt"), dd = document.createElement("dd"); dt.textContent = k; dd.textContent = v; dl.append(dt, dd); }
+  document.getElementById("result").hidden = false;
+  updateHud();
+}
+document.getElementById("againBtn").addEventListener("click", () => {
+  for (const b of [...items]) removeItem(b);
+  S = freshState();
+  S.catalog = Array.from({ length: 6 }, randomCatalogThing);
+  renderCatalog(); renderBalance(); save();
+  document.getElementById("result").hidden = true;
+  lastHud = "";
+});
+
+// ---------------------------------------------------------------- save / load (this device)
+const SAVE_KEY = "Alchemillion.save.v1";
+function save() {
+  if (!S) return;
+  try {
+    const data = { ...S, things: [...items].map(b => ({ t: b.thing, x: +b.position.x.toFixed(2), y: +b.position.y.toFixed(2), a: +b.angle.toFixed(3) })) };
+    localStorage.setItem(SAVE_KEY, JSON.stringify(data));
+  } catch (e) {}
+}
+function load() {
+  try {
+    const d = JSON.parse(localStorage.getItem(SAVE_KEY) || "null");
+    if (!d || !Array.isArray(d.catalog) || d.catalog.length !== 6 || !d.catalog.every(id => THINGS[id]?.buy)) return null;
+    return d;
+  } catch (e) { return null; }
+}
+setInterval(save, 3000);
+addEventListener("pagehide", save);
+document.addEventListener("visibilitychange", () => { if (document.hidden) save(); else last = performance.now(); });
+
+// ---------------------------------------------------------------- sizing: the lab keeps its 180x250 shape, scaled up in whole device pixels when it fits
+const labWrap = document.getElementById("labWrap"), labBox = document.getElementById("labBox");
+function fit() {
+  const r = labWrap.getBoundingClientRect(), dpr = devicePixelRatio || 1;
+  const s = Math.min((r.width - 4) / LAB_W, (r.height - 4) / LAB_H) * dpr;
+  const css = (s >= 1 && Math.floor(s) / s >= 0.85 ? Math.floor(s) : s) / dpr;
+  labBox.style.width = LAB_W * css + "px"; labBox.style.height = LAB_H * css + "px";
+}
+addEventListener("resize", fit);
+new ResizeObserver(fit).observe(labWrap);
+
+// ---------------------------------------------------------------- start
+function start() {
+  const saved = load();
+  S = freshState();
+  if (saved) {
+    Object.assign(S, { ...saved, stats: { ...S.stats, ...saved.stats } });
+    for (const it of saved.things || []) if (THINGS[it.t]) spawn(it.t, it.x, it.y, it.a);
+    document.getElementById("intro").hidden = true; running = true;
+    if (S.cleared) clear();
+  } else {
+    S.catalog = Array.from({ length: 6 }, randomCatalogThing);
+  }
+  renderCatalog(); renderBalance(); fit();
+  requestAnimationFrame(t => { last = t; frame(t); });
+}
+document.getElementById("startBtn").addEventListener("click", () => { document.getElementById("intro").hidden = true; running = true; save(); });
+start();
+</script>
