@@ -10,11 +10,11 @@
 :root {
   color-scheme: light;
   --outside: #241812;   /* letterbox around the frame */
-  --bg: #ecdcc0;        /* light oak desk around the lab */
-  --panel: #f8ecd6;     /* catalog cards, windows */
-  --line: #b8946a;
+  --bg: #ddb987;        /* warm oak desk around the lab */
+  --panel: #f2dfbd;     /* catalog cards, windows */
+  --line: #a97f4e;
   --ink: #3a2616;       /* walnut ink */
-  --muted: #7a5c40;
+  --muted: #6e4f33;
   --gold: #9c5a0c;      /* accent on light ground */
   --coin: #f2bb4c;      /* coins on the dark lab */
   --btn-ink: #fff8ec;
@@ -54,6 +54,8 @@ header { display: flex; align-items: flex-end; justify-content: space-between; g
 .opt { display: grid; gap: 6px; }
 .opt-label { font-size: 14px; }
 .opt-note { font-size: 12px; color: var(--muted); margin: 0; line-height: 1.6; }
+.optbtn { font: inherit; font-size: 15px; padding: 10px; background: color-mix(in srgb, var(--line) 45%, var(--panel)); color: var(--ink); border: 2px solid var(--line); cursor: pointer; }
+.optbtn:focus-visible { outline: 2px solid var(--ink); outline-offset: 1px; }
 #restartBtn { font: inherit; font-size: 15px; padding: 10px; background: color-mix(in srgb, var(--line) 45%, var(--panel)); color: var(--ink); border: 2px solid var(--line); cursor: pointer; }
 #restartBtn.armed { background: var(--minus); border-color: var(--minus); color: #fff; }
 #restartBtn:focus-visible { outline: 2px solid var(--ink); outline-offset: 1px; }
@@ -205,8 +207,12 @@ dl.stats dd { margin: 0; text-align: right; font-variant-numeric: tabular-nums; 
       </div>
     </div>
     <div class="opt">
+      <button id="bookResetBtn" class="optbtn" type="button">図鑑をリセットする</button>
+      <p class="opt-note" id="bookResetNote" hidden>図鑑をリセットしました。</p>
+    </div>
+    <div class="opt">
       <button id="restartBtn" type="button">最初からやり直す</button>
-      <p class="opt-note" id="restartNote">残高・研究室・カタログ・記録を消して、オープニングから始めます。図鑑と効果音の設定は残ります。</p>
+      <p class="opt-note" id="restartNote">図鑑の内容のみを残してゲームをやり直します。</p>
     </div>
   </div>
 </div>
@@ -1041,7 +1047,11 @@ function renderOptions() {
 }
 layButtons.forEach(b => b.addEventListener("click", () => { setLayout(b.dataset.lay); sfx.ui(); renderOptions(); }));
 function disarmRestart() { restartBtn.classList.remove("armed"); restartBtn.textContent = "最初からやり直す"; }
-function closeOptions() { optEl.hidden = true; disarmRestart(); }
+function closeOptions() { optEl.hidden = true; disarmRestart(); document.getElementById("bookResetNote").hidden = true; }
+document.getElementById("bookResetBtn").addEventListener("click", () => {
+  book.things.clear(); book.recipes.clear(); saveBook(); bookSel = null;
+  sfx.ui(); document.getElementById("bookResetNote").hidden = false;
+});
 document.getElementById("optBtn").addEventListener("click", () => { audioInit(); sfx.ui(); renderOptions(); optEl.hidden = false; document.getElementById("optClose").focus(); });
 document.getElementById("optClose").addEventListener("click", closeOptions);
 optEl.addEventListener("pointerdown", e => { if (e.target === optEl) closeOptions(); });
@@ -1110,11 +1120,9 @@ function setLayout(v) {
   try { localStorage.setItem("Alchemillion.layout", v); } catch (e) {}
   fitFrame(); fit();
 }
-// The lab fills its area; on screen its dots land on whole device pixels when that costs little room.
+// The lab fills its area of the game screen, the same way whatever the window (the canvas is drawn pixelated).
 function fit() {
-  const aw = labWrap.clientWidth - 4, ah = labWrap.clientHeight - 4, dev = uiScale * (devicePixelRatio || 1);
-  const s = Math.min(aw / LAB_W, ah / LAB_H) * dev;
-  const css = (s >= 1 && Math.floor(s) / s >= 0.85 ? Math.floor(s) : s) / dev;
+  const css = Math.min((labWrap.clientWidth - 4) / LAB_W, (labWrap.clientHeight - 4) / LAB_H);
   labBox.style.width = LAB_W * css + "px"; labBox.style.height = LAB_H * css + "px";
 }
 addEventListener("resize", () => { fitFrame(); fit(); });
