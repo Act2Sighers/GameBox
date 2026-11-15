@@ -5,32 +5,56 @@
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=DotGothic16&display=swap">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/matter-js/0.19.0/matter.min.js"></script>
 <style>
-/* Layout: one column. Balance on top, the six-slot catalog, then the lab (physics board) filling the rest. */
+/* Layout: a fixed-ratio game frame, letterboxed in the window. "portrait" = one column (balance, catalog, lab);
+   "wide" (6:5) = balance and catalog on the left, the lab on the right. The lab is the dim room; around it is light. */
 :root {
-  color-scheme: dark;
-  --bg: #33241a;        /* the lab's oak panelling at lamp light */
-  --panel: #4a3424;     /* catalog shelf */
-  --line: #6c4e35;
-  --ink: #f6ead6;       /* parchment */
-  --muted: #c8ae90;
-  --gold: #f2bb4c;      /* coins */
-  --minus: #ff6a5a;     /* negative balance */
+  color-scheme: light;
+  --outside: #241812;   /* letterbox around the frame */
+  --bg: #ecdcc0;        /* light oak desk around the lab */
+  --panel: #f8ecd6;     /* catalog cards, windows */
+  --line: #b8946a;
+  --ink: #3a2616;       /* walnut ink */
+  --muted: #7a5c40;
+  --gold: #9c5a0c;      /* accent on light ground */
+  --coin: #f2bb4c;      /* coins on the dark lab */
+  --btn-ink: #fff8ec;
+  --minus: #c0392b;     /* negative balance */
   --arcane: #9a6ae0;    /* the portal */
   --font: "DotGothic16", "Hiragino Kaku Gothic ProN", "Yu Gothic", system-ui, sans-serif;
 }
 html, body { height: 100%; }
 [hidden] { display: none !important; }
 body {
-  margin: 0; background: var(--bg); color: var(--ink); font-family: var(--font);
+  margin: 0; background: var(--outside); color: var(--ink); font-family: var(--font);
   overflow: hidden; touch-action: none; user-select: none; -webkit-user-select: none; -webkit-touch-callout: none;
   -webkit-tap-highlight-color: transparent;
 }
 #app {
-  position: fixed; inset: 0; display: flex; flex-direction: column; align-items: center; gap: 8px;
-  padding-top: max(8px, env(safe-area-inset-top, 0px)); padding-bottom: max(8px, env(safe-area-inset-bottom, 0px));
-  padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px));
+  position: fixed; inset: 0; display: grid; place-items: center; box-sizing: border-box;
+  padding-top: env(safe-area-inset-top, 0px); padding-bottom: env(safe-area-inset-bottom, 0px);
+  padding-left: max(4px, env(safe-area-inset-left, 0px)); padding-right: max(4px, env(safe-area-inset-right, 0px));
 }
-header { width: 100%; max-width: 480px; display: flex; align-items: flex-end; justify-content: space-between; gap: 12px; }
+#frame { position: relative; box-sizing: border-box; background: var(--bg); padding: 10px 16px; display: grid; gap: 8px; overflow: hidden; }
+#frame.portrait { grid-template-columns: minmax(0, 1fr); grid-template-rows: auto auto auto minmax(0, 1fr) auto; grid-template-areas: "head" "notice" "catalog" "lab" "hint"; }
+#frame.wide { grid-template-columns: minmax(0, 2fr) minmax(0, 3fr); grid-template-rows: auto auto auto minmax(0, 1fr); grid-template-areas: "head lab" "notice lab" "catalog lab" "hint lab"; column-gap: 16px; }
+header { grid-area: head; } #notice { grid-area: notice; } #catalog { grid-area: catalog; } #labWrap { grid-area: lab; } #hint { grid-area: hint; }
+#frame.wide #catalog { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+#frame.wide #hint { align-self: end; text-align: left; line-height: 1.6; }
+#frame.wide #labWrap { align-items: center; }
+#frame.wide header { flex-wrap: wrap; row-gap: 4px; }
+/* small frames (e.g. the wide layout on an upright phone): tighter type and smaller cards */
+#frame.compact { padding: 6px 10px; gap: 6px; }
+#frame.compact .title { font-size: 11px; }
+#frame.compact #balance { font-size: 18px; }
+#frame.compact #balance small { font-size: 11px; }
+#frame.compact .hbtn { font-size: 11px; padding: 3px 6px; }
+#frame.compact .hbtn.gear { padding: 3px 5px; }
+#frame.compact .card { padding: 2px 1px 3px; gap: 1px; }
+#frame.compact .card canvas { width: 26px; height: 26px; }
+#frame.compact .card .nm { font-size: 9px; height: 1.2em; white-space: nowrap; text-overflow: ellipsis; max-width: 100%; }
+#frame.compact .card .pr { font-size: 9px; }
+#frame.compact #hint, #frame.compact #notice { font-size: 10px; }
+header { display: flex; align-items: flex-end; justify-content: space-between; gap: 12px; }
 .hl { display: grid; gap: 0; min-width: 0; }
 .hb { display: flex; gap: 6px; padding-bottom: 4px; }
 .hbtn { font: inherit; font-size: 13px; padding: 6px 10px; background: var(--panel); color: var(--ink); border: 2px solid var(--line); cursor: pointer; white-space: nowrap; }
@@ -39,12 +63,12 @@ header { width: 100%; max-width: 480px; display: flex; align-items: flex-end; ju
 .hbtn.gear { display: grid; place-items: center; padding: 6px 9px; }
 .seg { display: grid; grid-template-columns: 1fr 1fr; border: 2px solid var(--line); }
 .seg button { font: inherit; font-size: 15px; padding: 9px 0; border: 0; background: transparent; color: var(--muted); cursor: pointer; }
-.seg button[aria-checked="true"] { background: var(--line); color: var(--ink); box-shadow: inset 0 -3px 0 var(--gold); }
+.seg button[aria-checked="true"] { background: color-mix(in srgb, var(--line) 55%, var(--panel)); color: var(--ink); box-shadow: inset 0 -3px 0 var(--gold); }
 .seg button:focus-visible { outline: 2px solid var(--ink); outline-offset: -2px; }
 .opt { display: grid; gap: 6px; }
 .opt-label { font-size: 14px; }
 .opt-note { font-size: 12px; color: var(--muted); margin: 0; line-height: 1.6; }
-#restartBtn { font: inherit; font-size: 15px; padding: 10px; background: var(--line); color: var(--ink); border: 2px solid var(--line); cursor: pointer; }
+#restartBtn { font: inherit; font-size: 15px; padding: 10px; background: color-mix(in srgb, var(--line) 45%, var(--panel)); color: var(--ink); border: 2px solid var(--line); cursor: pointer; }
 #restartBtn.armed { background: var(--minus); border-color: var(--minus); color: #fff; }
 #restartBtn:focus-visible { outline: 2px solid var(--ink); outline-offset: 1px; }
 #fader { position: fixed; inset: 0; z-index: 50; background: #000; opacity: 0; pointer-events: none; transition: opacity .5s; }
@@ -56,10 +80,10 @@ header { width: 100%; max-width: 480px; display: flex; align-items: flex-end; ju
 #balance small { font-size: 15px; color: var(--muted); margin-left: 2px; }
 #balance.minus { color: var(--minus); }
 #notice {
-  width: 100%; max-width: 480px; font-size: 13px; line-height: 1.4; padding: 6px 10px;
+  font-size: 13px; line-height: 1.4; padding: 6px 10px;
   border: 1px solid var(--gold); color: var(--gold); background: color-mix(in srgb, var(--gold) 10%, transparent);
 }
-#catalog { width: 100%; max-width: 480px; display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); gap: 6px; }
+#catalog { display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); gap: 6px; }
 .card {
   font: inherit; color: var(--ink); background: var(--panel); border: 2px solid var(--line); padding: 4px 2px 5px;
   display: grid; justify-items: center; gap: 2px; cursor: pointer; min-width: 0; touch-action: manipulation;
@@ -79,35 +103,35 @@ header { width: 100%; max-width: 480px; display: flex; align-items: flex-end; ju
 @keyframes slideL { from { transform: translateX(calc(-100% - 6px)); } }
 @keyframes slideR { from { transform: translateX(calc(100% + 6px)); } }
 @keyframes fresh { from { opacity: 0; transform: scale(.7); } }
-#labWrap { flex: 1; min-height: 0; width: 100%; display: flex; align-items: flex-start; justify-content: center; }
+#labWrap { min-height: 0; min-width: 0; display: flex; align-items: flex-start; justify-content: center; }
 #labBox { position: relative; }
 #lab { display: block; width: 100%; height: 100%; image-rendering: pixelated; border: 2px solid var(--line); box-sizing: content-box; touch-action: none; cursor: grab; }
 #toasts { position: absolute; left: 6px; right: 6px; top: 26px; display: grid; gap: 4px; justify-items: center; pointer-events: none; }
 .toast { font-size: 12px; padding: 3px 8px; background: color-mix(in srgb, #1e140c 82%, transparent); border: 1px solid var(--line); animation: toast 2.2s forwards; white-space: nowrap; }
 .toast.react { border-color: #e0884a; color: #ffe0c0; }
-.toast.sell { border-color: var(--gold); color: var(--gold); }
+.toast.sell { border-color: var(--coin); color: var(--coin); }
 .toast.new { border-color: #fff0a8; color: #fff0a8; background: color-mix(in srgb, #b8602a 60%, #1e140c); }
-.toast.bulk { border-color: var(--gold); color: #1e140c; background: var(--gold); }
+.toast.bulk { border-color: var(--coin); color: #1e140c; background: var(--coin); }
 @keyframes toast { 0% { opacity: 0; transform: translateY(-4px); } 10%, 75% { opacity: 1; transform: none; } 100% { opacity: 0; } }
 #blocked { position: absolute; left: 6px; right: 6px; bottom: 26px; text-align: center; font-size: 12px; color: #ffd0c8; background: color-mix(in srgb, #1e140c 88%, transparent); border: 1px solid var(--minus); padding: 4px; pointer-events: none; }
 #hint { font-size: 11px; color: var(--muted); text-align: center; }
 .overlay {
-  position: fixed; inset: 0; z-index: 10; display: grid; place-items: center; background: color-mix(in srgb, var(--bg) 80%, transparent);
+  position: fixed; inset: 0; z-index: 10; display: grid; place-items: center; background: color-mix(in srgb, var(--outside) 70%, transparent);
   padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px));
 }
-.sheet { width: min(380px, 100%); max-height: calc(100% - 32px); overflow: auto; background: var(--panel); border: 2px solid var(--gold); box-shadow: 0 0 0 3px var(--bg); padding: 18px; display: grid; gap: 12px; }
+.sheet { width: min(380px, 100%); max-height: calc(100% - 32px); overflow: auto; background: var(--panel); border: 2px solid var(--gold); box-shadow: 0 0 0 3px var(--outside); padding: 18px; display: grid; gap: 12px; }
 .sheet h1 { margin: 0; font-size: 28px; font-weight: normal; letter-spacing: .06em; color: var(--gold); text-wrap: balance; }
 .sheet h1 span { color: var(--ink); }
 .sheet h2 { margin: 0; font-size: 20px; font-weight: normal; color: var(--gold); }
 .sheet p { margin: 0; font-size: 14px; line-height: 1.7; }
 .sheet ul { margin: 0; padding-left: 1.2em; font-size: 13px; line-height: 1.7; color: var(--muted); }
-.btn { font: inherit; font-size: 16px; padding: 12px; background: var(--gold); color: var(--bg); border: 0; cursor: pointer; }
+.btn { font: inherit; font-size: 16px; padding: 12px; background: var(--gold); color: var(--btn-ink); border: 0; cursor: pointer; }
 .btn.sub { background: var(--line); color: var(--ink); font-size: 14px; padding: 9px; }
 .btn:focus-visible { outline: 3px solid var(--ink); outline-offset: 2px; }
 /* encyclopedia */
 .book { width: min(420px, 100%); gap: 10px; }
 .book-head { display: flex; justify-content: space-between; align-items: center; }
-.xbtn { font: inherit; font-size: 18px; width: 36px; height: 36px; background: var(--line); color: var(--ink); border: 0; cursor: pointer; }
+.xbtn { font: inherit; font-size: 18px; width: 36px; height: 36px; background: color-mix(in srgb, var(--line) 45%, var(--panel)); color: var(--ink); border: 0; cursor: pointer; }
 .xbtn:focus-visible { outline: 2px solid var(--ink); }
 .book-prog { font-size: 12px; color: var(--muted); margin: 0; }
 #bookGrid { display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); gap: 4px; }
@@ -127,7 +151,7 @@ dl.stats dd { margin: 0; text-align: right; font-variant-numeric: tabular-nums; 
 @media (prefers-reduced-motion: reduce) { .card, .toast { animation: none !important; } }
 </style>
 
-<div id="app">
+<div id="app"><div id="frame" class="portrait">
   <header>
     <div class="hl">
       <div class="title"><b>Alche</b>million</div>
@@ -150,7 +174,7 @@ dl.stats dd { margin: 0; text-align: right; font-variant-numeric: tabular-nums; 
     </div>
   </div>
   <div id="hint">ドラッグ：ポータルを動かす　モノをタップ：売る　床をタップ：全部売る</div>
-</div>
+</div></div>
 
 <div id="intro" class="overlay">
   <div class="sheet">
@@ -184,6 +208,13 @@ dl.stats dd { margin: 0; text-align: right; font-variant-numeric: tabular-nums; 
       <div class="seg" role="radiogroup" aria-labelledby="sndLabel">
         <button type="button" role="radio" data-snd="on">あり</button>
         <button type="button" role="radio" data-snd="off">なし</button>
+      </div>
+    </div>
+    <div class="opt">
+      <div class="opt-label" id="layLabel">画面のレイアウト</div>
+      <div class="seg" role="radiogroup" aria-labelledby="layLabel">
+        <button type="button" role="radio" data-lay="portrait">スマホ（縦長）</button>
+        <button type="button" role="radio" data-lay="wide">ワイド</button>
       </div>
     </div>
     <div class="opt">
@@ -616,7 +647,7 @@ for (let i = 0; i < 6; i++) {
 }
 // Icons fill their box (so a whole series of bottles or bars shows at about the same size), drawn at device
 // resolution. The scale may be fractional; on dense screens the uneven dots cannot be seen.
-function iconOf(type, cv, css = 40) {
+function iconOf(type, cv, css = cv.clientWidth || 40) {
   const dpr = devicePixelRatio || 1, D = Math.round(css * dpr);
   if (cv.width !== D) { cv.width = D; cv.height = D; }
   const g = cv.getContext("2d"), img = THINGS[type].img;
@@ -759,32 +790,75 @@ function updateHud() {
 }
 
 // ---------------------------------------------------------------- drawing the lab
+// The backdrop (wall boards, furniture, lamps, plants) is painted in full and then laid over a single dark
+// colour at low opacity, so it reads as scenery and never competes with the things in front.
 const BG = (() => {
-  const c = document.createElement("canvas"); c.width = LAB_W; c.height = LAB_H;
-  const g = c.getContext("2d");
+  const scene = document.createElement("canvas"); scene.width = LAB_W; scene.height = FLOOR_TOP;
+  const g = scene.getContext("2d");
+  const r = (x, y, w, h, c) => { g.fillStyle = c; g.fillRect(x, y, w, h); };
+  const disc = (cx, cy, rad, c) => { g.fillStyle = c; for (let y = -rad; y <= rad; y++) for (let x = -rad; x <= rad; x++) if (x * x + y * y <= rad * rad + rad * 0.6) g.fillRect(cx + x, cy + y, 1, 1); };
   let seed = 7; const rnd = () => (seed = (seed * 16807) % 2147483647) / 2147483647;
   // oak boards: 10px rows, joints at uneven spacing so the rows do not line up
   for (let y = 0; y < FLOOR_TOP; y += 10) {
     let x = -Math.floor(rnd() * 50);
     while (x < LAB_W) {
       const w = 38 + Math.floor(rnd() * 34), tone = rnd();
-      g.fillStyle = tone < 0.33 ? "#9a6a3e" : tone < 0.66 ? "#a2713f" : "#93643a"; g.fillRect(x, y, w, 10);
-      g.fillStyle = "#b4824e"; g.fillRect(x, y, w, 1);
-      g.fillStyle = "#86592f";
-      for (let k = 0; k < 3; k++) g.fillRect(x + 3 + Math.floor(rnd() * (w - 10)), y + 3 + Math.floor(rnd() * 5), 4 + Math.floor(rnd() * 6), 1);
-      g.fillStyle = "#6e4826"; g.fillRect(x, y, 1, 10);
+      r(x, y, w, 10, tone < 0.33 ? "#9a6a3e" : tone < 0.66 ? "#a2713f" : "#93643a"); r(x, y, w, 1, "#b4824e");
+      for (let k = 0; k < 3; k++) r(x + 3 + Math.floor(rnd() * (w - 10)), y + 3 + Math.floor(rnd() * 5), 4 + Math.floor(rnd() * 6), 1, "#86592f");
+      r(x, y, 1, 10, "#6e4826");
       x += w;
     }
-    g.fillStyle = "#6e4826"; g.fillRect(0, y + 9, LAB_W, 1);
+    r(0, y + 9, LAB_W, 1, "#6e4826");
   }
-  // a faint chalk circle on the back wall
-  g.strokeStyle = "rgba(255,236,200,0.16)"; g.lineWidth = 1;
-  for (const r of [46, 38]) { g.beginPath(); g.arc(LAB_W / 2, LAB_H * 0.55, r, 0, Math.PI * 2); g.stroke(); }
-  g.beginPath(); // pentagram
-  for (let i = 0; i <= 5; i++) { const a = -Math.PI / 2 + i * Math.PI * 4 / 5; g.lineTo(LAB_W / 2 + Math.cos(a) * 38, LAB_H * 0.55 + Math.sin(a) * 38); }
-  g.stroke();
+  // chalk circle
+  g.strokeStyle = "rgba(255,236,200,0.5)"; g.lineWidth = 1;
+  for (const rad of [46, 38]) { g.beginPath(); g.arc(LAB_W / 2, 120, rad, 0, Math.PI * 2); g.stroke(); }
+  g.beginPath(); for (let i = 0; i <= 5; i++) { const a = -Math.PI / 2 + i * Math.PI * 4 / 5; g.lineTo(LAB_W / 2 + Math.cos(a) * 38, 120 + Math.sin(a) * 38); } g.stroke();
+  // ceiling: two hanging lanterns and two hanging plants
+  for (const x of [46, 134]) {
+    r(x, 0, 1, 18, "#3a3030"); r(x - 4, 18, 9, 2, "#8a6a2a"); r(x - 5, 20, 11, 9, "#f2d070"); r(x - 5, 20, 1, 9, "#c8a040"); r(x + 5, 20, 1, 9, "#c8a040");
+    r(x - 2, 22, 4, 5, "#fff4c0"); r(x - 3, 29, 7, 2, "#8a6a2a"); r(x - 1, 31, 3, 1, "#6a4a1a");
+  }
+  for (const x of [16, 166]) {
+    r(x, 0, 1, 22, "#8a6a40"); r(x - 7, 22, 15, 2, "#b86a44"); r(x - 6, 24, 13, 6, "#a0583a"); r(x - 5, 29, 11, 1, "#7a4028");
+    for (const [dx, len] of [[-6, 22], [-3, 14], [1, 26], [5, 17]]) for (let k = 0; k < len; k += 3) { r(x + dx + (k % 6 ? 1 : 0), 26 + k, 2, 2, k % 9 ? "#4f8a43" : "#6fae5a"); }
+    r(x - 4, 20, 3, 3, "#5d9a4e"); r(x + 2, 19, 3, 4, "#6fae5a");
+  }
+  // bookshelf (left)
+  r(3, 146, 40, 3, "#6e4826"); r(4, 149, 38, 93, "#5a3a20"); r(7, 151, 32, 89, "#3a2414");
+  const BOOKS = ["#8a2a2a", "#2a4a7a", "#3a6a3a", "#8a6a2a", "#5a2a6a", "#a04a2a", "#2a6a6a"];
+  for (const base of [172, 196, 220, 240]) {
+    if (base < 240) r(7, base, 32, 2, "#6e4826");
+    let x = 8;
+    while (x < 37) {
+      const w = 2 + Math.floor(rnd() * 3), h = 12 + Math.floor(rnd() * 8), c = BOOKS[Math.floor(rnd() * BOOKS.length)];
+      if (x + w > 38) break;
+      r(x, base - h, w, h, c); r(x, base - h + 2, w, 1, "#e8d080");
+      x += w + (rnd() < 0.2 ? 2 : 0);
+    }
+  }
+  disc(30, 189, 4, "#c8dce4"); r(29, 182, 3, 3, "#c8dce4"); disc(30, 190, 3, "#7ac070"); // a jar on the second shelf
+  // workbench (right) with glassware, a retort and a candle
+  r(110, 204, 68, 4, "#7a4e2c"); r(110, 208, 68, 2, "#5a3820"); r(113, 210, 3, 32, "#5a3820"); r(172, 210, 3, 32, "#5a3820");
+  r(146, 210, 22, 9, "#6a4426"); r(156, 214, 2, 2, "#c8a040"); r(118, 236, 52, 2, "#5a3820");
+  r(121, 184, 3, 8, "#c8dce4"); disc(122, 197, 6, "#c8dce4"); disc(122, 199, 4, "#5ab06a"); r(120, 192, 1, 2, "#ffffff");
+  r(133, 182, 7, 22, "#c8dce4"); r(134, 191, 5, 12, "#4a7ad0"); r(132, 182, 9, 1, "#c8dce4");
+  disc(153, 198, 5, "#c8783a"); disc(151, 196, 2, "#e8a060"); for (let k = 0; k < 10; k++) r(157 + k, 194 - Math.floor(k / 2), 2, 1, "#c8783a");
+  r(170, 196, 3, 8, "#efe4c8"); r(171, 193, 1, 3, "#f8c050"); r(171, 192, 1, 1, "#fff0a0");
+  // floor clutter: a pile of books and a potted plant
+  r(56, 236, 24, 6, "#2a4a7a"); r(58, 231, 20, 5, "#8a2a2a"); r(60, 227, 16, 4, "#3a6a3a"); r(56, 236, 24, 1, "#e8d080");
+  r(88, 230, 13, 12, "#a0583a"); r(87, 228, 15, 3, "#b86a44");
+  for (const [x, y, rad, c] of [[94, 220, 6, "#4f8a43"], [90, 214, 4, "#6fae5a"], [99, 213, 4, "#5d9a4e"], [94, 208, 3, "#6fae5a"]]) disc(x, y, rad, c);
+  // a small wall shelf of jars above the bench
+  r(118, 140, 52, 3, "#6e4826"); r(120, 143, 2, 4, "#5a3820"); r(166, 143, 2, 4, "#5a3820");
+  for (const [x, c, h] of [[122, "#c86a8a", 8], [130, "#e0c060", 6], [137, "#7fc0d8", 9], [146, "#9a7ac8", 7], [154, "#6aa86a", 8], [161, "#d8834a", 6]]) { r(x, 140 - h, 6, h, c); r(x + 1, 140 - h - 2, 4, 2, "#a87240"); r(x + 1, 140 - h + 1, 1, h - 2, "rgba(255,255,255,0.5)"); }
+
+  const c = document.createElement("canvas"); c.width = LAB_W; c.height = LAB_H;
+  const out = c.getContext("2d");
+  out.fillStyle = "#2a1d14"; out.fillRect(0, 0, LAB_W, LAB_H);
+  out.globalAlpha = 0.4; out.drawImage(scene, 0, 0); out.globalAlpha = 1;
   // the pit under the floor (seen while the floor is open)
-  g.fillStyle = "#140d08"; g.fillRect(0, FLOOR_TOP, LAB_W, FLOOR_H);
+  out.fillStyle = "#0e0905"; out.fillRect(0, FLOOR_TOP, LAB_W, FLOOR_H);
   return c;
 })();
 // one stone floor leaf (drawn rotated about its hinge)
@@ -827,7 +901,7 @@ function drawPortal(time, blocked) {
     labCtx.fillRect(Math.round(x + Math.cos(a) * (PORTAL_HALF - 3)), Math.round(y + Math.sin(a) * 2.5), 1, 1);
   }
   // drop guide
-  labCtx.fillStyle = blocked ? "rgba(240,86,106,0.18)" : "rgba(226,210,255,0.10)";
+  labCtx.fillStyle = blocked ? "rgba(255,120,130,0.45)" : "rgba(226,210,255,0.4)";
   for (let yy = y + 6; yy < LAB_H - FLOOR_H; yy += 6) labCtx.fillRect(x, yy, 1, 3);
 }
 // a four-point twinkle that appears briefly at a different spot on each cycle
@@ -972,7 +1046,12 @@ document.getElementById("againBtn").addEventListener("click", () => {
 // ---------------------------------------------------------------- options window
 const optEl = document.getElementById("options"), restartBtn = document.getElementById("restartBtn");
 const sndButtons = [...optEl.querySelectorAll("[data-snd]")];
-function renderOptions() { sndButtons.forEach(b => b.setAttribute("aria-checked", (b.dataset.snd === "on") === A.on ? "true" : "false")); }
+const layButtons = [...optEl.querySelectorAll("[data-lay]")];
+function renderOptions() {
+  sndButtons.forEach(b => b.setAttribute("aria-checked", (b.dataset.snd === "on") === A.on ? "true" : "false"));
+  layButtons.forEach(b => b.setAttribute("aria-checked", b.dataset.lay === layout ? "true" : "false"));
+}
+layButtons.forEach(b => b.addEventListener("click", () => { setLayout(b.dataset.lay); sfx.ui(); renderOptions(); }));
 function disarmRestart() { restartBtn.classList.remove("armed"); restartBtn.textContent = "最初からやり直す"; }
 function closeOptions() { optEl.hidden = true; disarmRestart(); }
 document.getElementById("optBtn").addEventListener("click", () => { audioInit(); sfx.ui(); renderOptions(); optEl.hidden = false; document.getElementById("optClose").focus(); });
@@ -1020,13 +1099,32 @@ document.addEventListener("visibilitychange", () => { if (document.hidden) save(
 
 // ---------------------------------------------------------------- sizing: the lab keeps its 180x250 shape, scaled up in whole device pixels when it fits
 const labWrap = document.getElementById("labWrap"), labBox = document.getElementById("labBox");
+const frameEl = document.getElementById("frame"), appEl = document.getElementById("app");
+const LAYOUT_RATIO = { portrait: 9 / 18, wide: 6 / 5 }; // width / height
+let layout = (() => { try { const v = localStorage.getItem("Alchemillion.layout"); if (LAYOUT_RATIO[v]) return v; } catch (e) {} return innerWidth / innerHeight > 0.9 ? "wide" : "portrait"; })();
+// The frame always keeps the chosen ratio; any extra room in the window becomes margin around it.
+function fitFrame() {
+  const cs = getComputedStyle(appEl);
+  const aw = appEl.clientWidth - parseFloat(cs.paddingLeft) - parseFloat(cs.paddingRight);
+  const ah = appEl.clientHeight - parseFloat(cs.paddingTop) - parseFloat(cs.paddingBottom);
+  const ratio = LAYOUT_RATIO[layout], w = Math.min(aw, ah * ratio);
+  const h = Math.floor(w / ratio), compact = h < 480;
+  const cls = layout + (compact ? " compact" : "");
+  frameEl.style.width = Math.floor(w) + "px"; frameEl.style.height = h + "px";
+  if (frameEl.className !== cls) { frameEl.className = cls; if (S) renderCatalog(); }
+}
+function setLayout(v) {
+  layout = v;
+  try { localStorage.setItem("Alchemillion.layout", v); } catch (e) {}
+  fitFrame(); fit();
+}
 function fit() {
   const r = labWrap.getBoundingClientRect(), dpr = devicePixelRatio || 1;
   const s = Math.min((r.width - 4) / LAB_W, (r.height - 4) / LAB_H) * dpr;
   const css = (s >= 1 && Math.floor(s) / s >= 0.85 ? Math.floor(s) : s) / dpr;
   labBox.style.width = LAB_W * css + "px"; labBox.style.height = LAB_H * css + "px";
 }
-addEventListener("resize", fit);
+addEventListener("resize", () => { fitFrame(); fit(); });
 new ResizeObserver(fit).observe(labWrap);
 
 // ---------------------------------------------------------------- start
@@ -1041,7 +1139,7 @@ function start() {
   } else {
     S.catalog = Array.from({ length: 6 }, randomCatalogThing);
   }
-  renderCatalog(); renderBalance(); fit();
+  renderCatalog(); renderBalance(); fitFrame(); fit();
   requestAnimationFrame(t => { last = t; frame(t); });
 }
 document.getElementById("startBtn").addEventListener("click", () => { audioInit(); sfx.ui(); document.getElementById("intro").hidden = true; running = true; save(); });
