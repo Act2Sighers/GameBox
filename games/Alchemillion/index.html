@@ -8,13 +8,13 @@
 /* Layout: one column. Balance on top, the six-slot catalog, then the lab (physics board) filling the rest. */
 :root {
   color-scheme: dark;
-  --bg: #15111f;        /* night in the academy */
-  --panel: #221b30;     /* catalog shelf */
-  --line: #3a3050;
-  --ink: #efe6d2;       /* parchment */
-  --muted: #a598b8;
-  --gold: #e8b84a;      /* coins */
-  --minus: #f0566a;     /* negative balance */
+  --bg: #33241a;        /* the lab's oak panelling at lamp light */
+  --panel: #4a3424;     /* catalog shelf */
+  --line: #6c4e35;
+  --ink: #f6ead6;       /* parchment */
+  --muted: #c8ae90;
+  --gold: #f2bb4c;      /* coins */
+  --minus: #ff6a5a;     /* negative balance */
   --arcane: #9a6ae0;    /* the portal */
   --font: "DotGothic16", "Hiragino Kaku Gothic ProN", "Yu Gothic", system-ui, sans-serif;
 }
@@ -36,7 +36,20 @@ header { width: 100%; max-width: 480px; display: flex; align-items: flex-end; ju
 .hbtn { font: inherit; font-size: 13px; padding: 6px 10px; background: var(--panel); color: var(--ink); border: 2px solid var(--line); cursor: pointer; white-space: nowrap; }
 .hbtn:hover { border-color: var(--gold); }
 .hbtn:focus-visible { outline: 2px solid var(--ink); outline-offset: 1px; }
-.hbtn[aria-pressed="false"] { color: var(--muted); }
+.hbtn.gear { display: grid; place-items: center; padding: 6px 9px; }
+.seg { display: grid; grid-template-columns: 1fr 1fr; border: 2px solid var(--line); }
+.seg button { font: inherit; font-size: 15px; padding: 9px 0; border: 0; background: transparent; color: var(--muted); cursor: pointer; }
+.seg button[aria-checked="true"] { background: var(--line); color: var(--ink); box-shadow: inset 0 -3px 0 var(--gold); }
+.seg button:focus-visible { outline: 2px solid var(--ink); outline-offset: -2px; }
+.opt { display: grid; gap: 6px; }
+.opt-label { font-size: 14px; }
+.opt-note { font-size: 12px; color: var(--muted); margin: 0; line-height: 1.6; }
+#restartBtn { font: inherit; font-size: 15px; padding: 10px; background: var(--line); color: var(--ink); border: 2px solid var(--line); cursor: pointer; }
+#restartBtn.armed { background: var(--minus); border-color: var(--minus); color: #fff; }
+#restartBtn:focus-visible { outline: 2px solid var(--ink); outline-offset: 1px; }
+#fader { position: fixed; inset: 0; z-index: 50; background: #000; opacity: 0; pointer-events: none; transition: opacity .5s; }
+#fader.on { opacity: 1; pointer-events: auto; }
+@media (prefers-reduced-motion: reduce) { #fader { transition: none; } }
 .title { font-size: 15px; letter-spacing: .08em; color: var(--muted); }
 .title b { color: var(--gold); font-weight: normal; }
 #balance { font-size: 26px; font-variant-numeric: tabular-nums; color: var(--ink); white-space: nowrap; }
@@ -70,12 +83,13 @@ header { width: 100%; max-width: 480px; display: flex; align-items: flex-end; ju
 #labBox { position: relative; }
 #lab { display: block; width: 100%; height: 100%; image-rendering: pixelated; border: 2px solid var(--line); box-sizing: content-box; touch-action: none; cursor: grab; }
 #toasts { position: absolute; left: 6px; right: 6px; top: 26px; display: grid; gap: 4px; justify-items: center; pointer-events: none; }
-.toast { font-size: 12px; padding: 3px 8px; background: color-mix(in srgb, var(--bg) 82%, transparent); border: 1px solid var(--line); animation: toast 2.2s forwards; white-space: nowrap; }
-.toast.react { border-color: var(--arcane); color: #e2d2ff; }
+.toast { font-size: 12px; padding: 3px 8px; background: color-mix(in srgb, #1e140c 82%, transparent); border: 1px solid var(--line); animation: toast 2.2s forwards; white-space: nowrap; }
+.toast.react { border-color: #e0884a; color: #ffe0c0; }
 .toast.sell { border-color: var(--gold); color: var(--gold); }
-.toast.new { border-color: #fff0a8; color: #fff0a8; background: color-mix(in srgb, #6a4ab0 55%, var(--bg)); }
+.toast.new { border-color: #fff0a8; color: #fff0a8; background: color-mix(in srgb, #b8602a 60%, #1e140c); }
+.toast.bulk { border-color: var(--gold); color: #1e140c; background: var(--gold); }
 @keyframes toast { 0% { opacity: 0; transform: translateY(-4px); } 10%, 75% { opacity: 1; transform: none; } 100% { opacity: 0; } }
-#blocked { position: absolute; left: 6px; right: 6px; bottom: 8px; text-align: center; font-size: 12px; color: var(--minus); background: color-mix(in srgb, var(--bg) 85%, transparent); padding: 4px; pointer-events: none; }
+#blocked { position: absolute; left: 6px; right: 6px; bottom: 26px; text-align: center; font-size: 12px; color: #ffd0c8; background: color-mix(in srgb, #1e140c 88%, transparent); border: 1px solid var(--minus); padding: 4px; pointer-events: none; }
 #hint { font-size: 11px; color: var(--muted); text-align: center; }
 .overlay {
   position: fixed; inset: 0; z-index: 10; display: grid; place-items: center; background: color-mix(in srgb, var(--bg) 80%, transparent);
@@ -121,7 +135,9 @@ dl.stats dd { margin: 0; text-align: right; font-variant-numeric: tabular-nums; 
     </div>
     <div class="hb">
       <button class="hbtn" id="bookBtn" type="button">図鑑</button>
-      <button class="hbtn" id="soundBtn" type="button" aria-pressed="true">音 入</button>
+      <button class="hbtn gear" id="optBtn" type="button" aria-label="オプション">
+        <svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true"><g fill="currentColor"><rect x="10" y="1" width="4" height="22"/><rect x="10" y="1" width="4" height="22" transform="rotate(45 12 12)"/><rect x="10" y="1" width="4" height="22" transform="rotate(90 12 12)"/><rect x="10" y="1" width="4" height="22" transform="rotate(135 12 12)"/><circle cx="12" cy="12" r="7.5"/></g><circle cx="12" cy="12" r="3" fill="var(--panel)"/></svg>
+      </button>
     </div>
   </header>
   <div id="notice" hidden>研究室のモノを全部売れば、残高が 1,000,000M に届きます</div>
@@ -133,7 +149,7 @@ dl.stats dd { margin: 0; text-align: right; font-variant-numeric: tabular-nums; 
       <div id="blocked" hidden>ポータルがふさがっています。モノを売って空けてください</div>
     </div>
   </div>
-  <div id="hint">研究室を左右にドラッグ：ポータルを動かす　モノをタップ：売る</div>
+  <div id="hint">ドラッグ：ポータルを動かす　モノをタップ：売る　床をタップ：全部売る</div>
 </div>
 
 <div id="intro" class="overlay">
@@ -144,7 +160,7 @@ dl.stats dd { margin: 0; text-align: right; font-variant-numeric: tabular-nums; 
     <ul>
       <li>カタログのモノをタップすると買って、上のポータルから落とす</li>
       <li>研究室のモノは、相性のいいモノと触れると反応して、より高価なモノになる</li>
-      <li>研究室をドラッグするとポータルが動く。モノをタップすると売れる</li>
+      <li>研究室をドラッグするとポータルが動く。モノをタップすると売れる。床をタップすると床が開いて、全部まとめて売れる</li>
       <li>残高はマイナスになっても大丈夫</li>
     </ul>
     <button class="btn" id="startBtn" type="button">研究をはじめる</button>
@@ -159,6 +175,24 @@ dl.stats dd { margin: 0; text-align: right; font-variant-numeric: tabular-nums; 
     <div id="bookDetail"></div>
   </div>
 </div>
+
+<div id="options" class="overlay" hidden>
+  <div class="sheet" role="dialog" aria-labelledby="optTitle">
+    <div class="book-head"><h2 id="optTitle">オプション</h2><button class="xbtn" id="optClose" type="button" aria-label="閉じる">×</button></div>
+    <div class="opt">
+      <div class="opt-label" id="sndLabel">効果音</div>
+      <div class="seg" role="radiogroup" aria-labelledby="sndLabel">
+        <button type="button" role="radio" data-snd="on">あり</button>
+        <button type="button" role="radio" data-snd="off">なし</button>
+      </div>
+    </div>
+    <div class="opt">
+      <button id="restartBtn" type="button">最初からやり直す</button>
+      <p class="opt-note" id="restartNote">残高・研究室・カタログ・記録を消して、オープニングから始めます。図鑑と効果音の設定は残ります。</p>
+    </div>
+  </div>
+</div>
+<div id="fader"></div>
 
 <div id="result" class="overlay" hidden>
   <div class="sheet">
@@ -415,18 +449,18 @@ const sfx = {
   improve() { tone(1200, 0.12, "triangle", 0.08, 1800); tone(2400, 0.1, "sine", 0.04, null, 0.06); },
   discover() { [523, 659, 784, 1046, 1318].forEach((f, i) => { tone(f, 0.32, "triangle", 0.09, null, i * 0.07); tone(f * 2, 0.2, "sine", 0.025, null, i * 0.07); }); },
   sell(c) { const big = c >= M(1000); tone(1568, 0.09, "square", 0.04); tone(2093, big ? 0.35 : 0.18, "square", 0.035, null, 0.06); if (big) tone(2637, 0.4, "sine", 0.05, null, 0.14); },
+  doors() { tone(110, 0.35, "sawtooth", 0.05, 70); noise(0.3, 0.08, "lowpass", 400); },
+  shut() { tone(90, 0.18, "sine", 0.2, 50); noise(0.12, 0.12, "lowpass", 600); },
+  coin() { tone(1900 + Math.random() * 600, 0.07, "square", 0.025); },
   ui() { tone(900, 0.03, "square", 0.025); },
   clear() { [523, 659, 784, 1046, 784, 1046, 1318].forEach((f, i) => tone(f, 0.4, "triangle", 0.1, null, i * 0.11)); noise(0.8, 0.04, "highpass", 6000, 0.6); },
 };
-const soundBtn = document.getElementById("soundBtn");
-function renderSoundBtn() { soundBtn.textContent = A.on ? "音 入" : "音 切"; soundBtn.setAttribute("aria-pressed", A.on ? "true" : "false"); }
-soundBtn.addEventListener("click", () => {
-  A.on = !A.on; audioInit();
+function setSound(on) {
+  A.on = on; audioInit();
   if (A.master) A.master.gain.value = A.on ? 0.6 : 0;
   try { localStorage.setItem("Alchemillion.sound", A.on ? "on" : "off"); } catch (e) {}
-  renderSoundBtn(); sfx.ui();
-});
-renderSoundBtn();
+  sfx.ui();
+}
 addEventListener("pointerdown", audioInit, { once: true });
 
 // ---------------------------------------------------------------- state
@@ -451,10 +485,49 @@ engine.gravity.scale = 0.0007;
 const world = engine.world;
 const wallOpts = { isStatic: true, friction: 0.5, label: "wall" };
 Composite.add(world, [
-  Bodies.rectangle(LAB_W / 2, LAB_H - FLOOR_H / 2 + 20, LAB_W + 80, FLOOR_H + 40, wallOpts),
   Bodies.rectangle(-20, LAB_H / 2 - 100, 40, LAB_H + 300, wallOpts),
   Bodies.rectangle(LAB_W + 20, LAB_H / 2 - 100, 40, LAB_H + 300, wallOpts),
 ]);
+// The floor is two stone leaves hinged at the walls. Tapping the floor swings them down (a sale of everything).
+const FLOOR_TOP = LAB_H - FLOOR_H, LEAF_T = FLOOR_H + 14, LEAF_W = LAB_W / 2 + 1;
+const leaves = [
+  Bodies.rectangle(LAB_W / 4, FLOOR_TOP + LEAF_T / 2, LEAF_W, LEAF_T, { ...wallOpts, label: "floor" }),
+  Bodies.rectangle(LAB_W * 3 / 4, FLOOR_TOP + LEAF_T / 2, LEAF_W, LEAF_T, { ...wallOpts, label: "floor" }),
+];
+Composite.add(world, leaves);
+let doorAngle = 0; // 0 = closed, PI/2 = hanging straight down
+function setDoors(a) {
+  doorAngle = a;
+  const c = Math.cos(a), s = Math.sin(a);
+  // left leaf turns clockwise about (0, FLOOR_TOP); right leaf the other way about (LAB_W, FLOOR_TOP)
+  const ox = LEAF_W / 2, oy = LEAF_T / 2;
+  Body.setAngle(leaves[0], a); Body.setPosition(leaves[0], { x: ox * c - oy * s, y: FLOOR_TOP + ox * s + oy * c });
+  Body.setAngle(leaves[1], -a); Body.setPosition(leaves[1], { x: LAB_W - (ox * c - oy * s), y: FLOOR_TOP + ox * s + oy * c });
+}
+let bulk = null; // { phase: "opening" | "open" | "closing", t, count, total }
+function startBulkSale() {
+  if (bulk || S.cleared) return;
+  bulk = { phase: "opening", t: 0, count: 0, total: 0 };
+  sfx.doors();
+}
+function updateBulk(dt) {
+  if (!bulk) return;
+  bulk.t += dt;
+  const ease = x => x * x * (3 - 2 * x), DUR = 0.4;
+  if (bulk.phase === "opening") {
+    setDoors(ease(Math.min(1, bulk.t / DUR)) * Math.PI / 2);
+    if (bulk.t >= DUR) { bulk.phase = "open"; bulk.t = 0; }
+  } else if (bulk.phase === "open") {
+    if (items.size === 0 || bulk.t > 6) { bulk.phase = "closing"; bulk.t = 0; }
+  } else {
+    setDoors((1 - ease(Math.min(1, bulk.t / DUR))) * Math.PI / 2);
+    if (bulk.t >= DUR) {
+      setDoors(0); sfx.shut();
+      if (bulk.count) toast(`一括売却　${bulk.count}個　＋${fmt(bulk.total)}M`, "bulk");
+      bulk = null; save();
+    }
+  }
+}
 const items = new Set();
 function spawn(type, x, y, angle = 0, vel = null) {
   const t = THINGS[type];
@@ -542,15 +615,13 @@ for (let i = 0; i < 6; i++) {
   catalogEl.append(b); cards.push(b);
 }
 // Icons fill their box (so a whole series of bottles or bars shows at about the same size), drawn at device
-// resolution. On dense screens the scale may be fractional (a dot is 4 or 5 device pixels, which the eye
-// cannot tell apart); on 1x screens it stays a whole number so dots remain even.
+// resolution. The scale may be fractional; on dense screens the uneven dots cannot be seen.
 function iconOf(type, cv, css = 40) {
   const dpr = devicePixelRatio || 1, D = Math.round(css * dpr);
   if (cv.width !== D) { cv.width = D; cv.height = D; }
   const g = cv.getContext("2d"), img = THINGS[type].img;
   g.clearRect(0, 0, D, D); g.imageSmoothingEnabled = false;
-  const fit = D * 0.9 / Math.max(img.width, img.height);
-  const k = dpr >= 2 ? fit : Math.max(1, Math.floor(fit));
+  const k = D * 0.9 / Math.max(img.width, img.height);
   const w = Math.round(img.width * k), h = Math.round(img.height * k);
   g.drawImage(img, Math.round((D - w) / 2), Math.round((D - h) / 2), w, h);
 }
@@ -569,7 +640,7 @@ function renderCatalog(anim) {
 function buy(i) {
   if (S.cleared) return;
   audioInit();
-  if (portalBlocked().blocked) { sfx.blocked(); const c = cards[i]; c.classList.remove("nope"); void c.offsetWidth; c.classList.add("nope"); return; }
+  if (portalBlocked().blocked || bulk) { sfx.blocked(); const c = cards[i]; c.classList.remove("nope"); void c.offsetWidth; c.classList.add("nope"); return; }
   const type = S.catalog[i], t = THINGS[type];
   S.balance -= t.buyC;
   S.stats.buyTotal += t.buyC; S.stats.buyCount++;
@@ -598,6 +669,14 @@ function sell(b) {
   toast(`${t.name}を売った　＋${fmt(t.sellC)}M`, "sell"); sfx.sell(t.sellC);
   burst(b.position.x, b.position.y, "#e8b84a");
   renderBalance(); save();
+  if (S.balance >= GOAL && !S.cleared) clear();
+}
+function sellFallen(b) {
+  const t = THINGS[b.thing];
+  removeItem(b);
+  S.balance += t.sellC; S.stats.sellTotal += t.sellC; S.stats.sellCount++;
+  bulk.count++; bulk.total += t.sellC;
+  sfx.coin(); renderBalance();
   if (S.balance >= GOAL && !S.cleared) clear();
 }
 // The portal is blocked when something that has settled reaches into the portal's area.
@@ -646,6 +725,7 @@ function pressEnd(e) {
     }
   }
   if (hit) sell(hit);
+  else if (w.y >= FLOOR_TOP - 1 && !bulk) startBulkSale(); // the floor itself
 }
 lab.addEventListener("pointerup", pressEnd);
 lab.addEventListener("pointercancel", pressEnd);
@@ -669,10 +749,11 @@ function updateHud() {
   const pb = portalBlocked();
   let worth = S.balance;
   for (const b of items) worth += THINGS[b.thing].sellC;
-  const key = `${pb.blocked}|${pb.stuck}|${worth >= GOAL && !S.cleared}`;
+  const off = pb.blocked || S.cleared || !!bulk;
+  const key = `${off}|${pb.stuck}|${worth >= GOAL && !S.cleared}`;
   if (key === lastHud) return;
   lastHud = key;
-  cards.forEach(c => { c.classList.toggle("off", pb.blocked || S.cleared); c.setAttribute("aria-disabled", pb.blocked || S.cleared ? "true" : "false"); });
+  cards.forEach(c => { c.classList.toggle("off", off); c.setAttribute("aria-disabled", off ? "true" : "false"); });
   blockedEl.hidden = !pb.stuck;
   noticeEl.hidden = !(worth >= GOAL && !S.cleared);
 }
@@ -681,24 +762,52 @@ function updateHud() {
 const BG = (() => {
   const c = document.createElement("canvas"); c.width = LAB_W; c.height = LAB_H;
   const g = c.getContext("2d");
-  g.fillStyle = "#2a2238"; g.fillRect(0, 0, LAB_W, LAB_H);
-  for (let y = 0; y < LAB_H; y += 8) {
-    g.fillStyle = "#231c30"; g.fillRect(0, y, LAB_W, 1);
-    for (let x = (y / 8) % 2 ? 0 : 10; x < LAB_W; x += 20) g.fillRect(x, y, 1, 8);
-    for (let x = (y / 8) % 2 ? 1 : 11; x < LAB_W; x += 20) { g.fillStyle = "#30283f"; g.fillRect(x, y + 1, 18, 1); g.fillStyle = "#231c30"; }
+  let seed = 7; const rnd = () => (seed = (seed * 16807) % 2147483647) / 2147483647;
+  // oak boards: 10px rows, joints at uneven spacing so the rows do not line up
+  for (let y = 0; y < FLOOR_TOP; y += 10) {
+    let x = -Math.floor(rnd() * 50);
+    while (x < LAB_W) {
+      const w = 38 + Math.floor(rnd() * 34), tone = rnd();
+      g.fillStyle = tone < 0.33 ? "#9a6a3e" : tone < 0.66 ? "#a2713f" : "#93643a"; g.fillRect(x, y, w, 10);
+      g.fillStyle = "#b4824e"; g.fillRect(x, y, w, 1);
+      g.fillStyle = "#86592f";
+      for (let k = 0; k < 3; k++) g.fillRect(x + 3 + Math.floor(rnd() * (w - 10)), y + 3 + Math.floor(rnd() * 5), 4 + Math.floor(rnd() * 6), 1);
+      g.fillStyle = "#6e4826"; g.fillRect(x, y, 1, 10);
+      x += w;
+    }
+    g.fillStyle = "#6e4826"; g.fillRect(0, y + 9, LAB_W, 1);
   }
-  // a faint magic circle on the back wall
-  g.strokeStyle = "rgba(154,106,224,0.16)"; g.lineWidth = 1;
+  // a faint chalk circle on the back wall
+  g.strokeStyle = "rgba(255,236,200,0.16)"; g.lineWidth = 1;
   for (const r of [46, 38]) { g.beginPath(); g.arc(LAB_W / 2, LAB_H * 0.55, r, 0, Math.PI * 2); g.stroke(); }
   g.beginPath(); // pentagram
   for (let i = 0; i <= 5; i++) { const a = -Math.PI / 2 + i * Math.PI * 4 / 5; g.lineTo(LAB_W / 2 + Math.cos(a) * 38, LAB_H * 0.55 + Math.sin(a) * 38); }
   g.stroke();
-  // floor boards
-  g.fillStyle = "#5a3e2a"; g.fillRect(0, LAB_H - FLOOR_H, LAB_W, FLOOR_H);
-  g.fillStyle = "#7a5638"; g.fillRect(0, LAB_H - FLOOR_H, LAB_W, 1);
-  g.fillStyle = "#4a3222"; for (let x = 13; x < LAB_W; x += 30) g.fillRect(x, LAB_H - FLOOR_H + 1, 1, FLOOR_H - 1);
+  // the pit under the floor (seen while the floor is open)
+  g.fillStyle = "#140d08"; g.fillRect(0, FLOOR_TOP, LAB_W, FLOOR_H);
   return c;
 })();
+// one stone floor leaf (drawn rotated about its hinge)
+const LEAF = (() => {
+  const c = document.createElement("canvas"); c.width = LEAF_W; c.height = FLOOR_H;
+  const g = c.getContext("2d");
+  g.fillStyle = "#4c4c54"; g.fillRect(0, 0, LEAF_W, FLOOR_H);
+  g.fillStyle = "#62626c"; g.fillRect(0, 0, LEAF_W, 1);
+  g.fillStyle = "#3a3a42"; g.fillRect(0, FLOOR_H - 1, LEAF_W, 1);
+  for (let x = 17; x < LEAF_W; x += 22) { g.fillRect(x, 1, 1, FLOOR_H - 2); g.fillStyle = "#56565f"; g.fillRect(x + 1, 1, 1, FLOOR_H - 2); g.fillStyle = "#3a3a42"; }
+  g.fillStyle = "#58585f"; for (const [x, y] of [[5, 3], [30, 5], [52, 2], [71, 4], [86, 3]]) if (x < LEAF_W) g.fillRect(x, y, 2, 1);
+  return c;
+})();
+function drawFloor() {
+  for (const [side, hx] of [[1, 0], [-1, LAB_W]]) {
+    labCtx.save();
+    labCtx.translate(hx, FLOOR_TOP); labCtx.rotate(side * doorAngle);
+    if (side < 0) labCtx.scale(-1, 1);
+    labCtx.drawImage(LEAF, 0, 0);
+    labCtx.fillStyle = "#2a2a30"; labCtx.fillRect(0, 2, 3, 3); labCtx.fillStyle = "#8a8a96"; labCtx.fillRect(0, 2, 2, 1); // hinge
+    labCtx.restore();
+  }
+}
 function drawPortal(time, blocked) {
   const x = Math.round(S.portalX), y = PORTAL_Y;
   const glow = blocked ? "rgba(240,86,106," : "rgba(154,106,224,";
@@ -738,6 +847,7 @@ function render(time, dt) {
   labCtx.imageSmoothingEnabled = false;
   labCtx.drawImage(BG, 0, 0);
   const pb = portalBlocked();
+  drawFloor();
   drawPortal(time, pb.stuck);
   for (const b of items) {
     const t = THINGS[b.thing], img = t.imgs[Math.floor(time * (t.fps || 1) + b.id * 0.37) % t.imgs.length];
@@ -771,8 +881,12 @@ function frame(now) {
     for (const b of items) if (b.circleRadius) Body.setAngularVelocity(b, b.angularVelocity * 0.97);
   }
   if (steps === 4) acc = 0;
-  // things that fell through somehow are recovered as sold-for-nothing
-  for (const b of items) if (b.position.y > LAB_H + 60) removeItem(b);
+  // things that fall out through the open floor are sold; anything else that slipped out is dropped
+  for (const b of [...items]) {
+    if (bulk && b.position.y > LAB_H + 14) sellFallen(b);
+    else if (b.position.y > LAB_H + 60) removeItem(b);
+  }
+  updateBulk(dtMs / 1000);
   render(now / 1000, dtMs / 1000);
   updateHud();
   requestAnimationFrame(frame);
@@ -855,6 +969,35 @@ document.getElementById("againBtn").addEventListener("click", () => {
   lastHud = "";
 });
 
+// ---------------------------------------------------------------- options window
+const optEl = document.getElementById("options"), restartBtn = document.getElementById("restartBtn");
+const sndButtons = [...optEl.querySelectorAll("[data-snd]")];
+function renderOptions() { sndButtons.forEach(b => b.setAttribute("aria-checked", (b.dataset.snd === "on") === A.on ? "true" : "false")); }
+function disarmRestart() { restartBtn.classList.remove("armed"); restartBtn.textContent = "最初からやり直す"; }
+function closeOptions() { optEl.hidden = true; disarmRestart(); }
+document.getElementById("optBtn").addEventListener("click", () => { audioInit(); sfx.ui(); renderOptions(); optEl.hidden = false; document.getElementById("optClose").focus(); });
+document.getElementById("optClose").addEventListener("click", closeOptions);
+optEl.addEventListener("pointerdown", e => { if (e.target === optEl) closeOptions(); });
+addEventListener("keydown", e => { if (e.key === "Escape" && !optEl.hidden) closeOptions(); });
+sndButtons.forEach(b => b.addEventListener("click", () => { setSound(b.dataset.snd === "on"); renderOptions(); }));
+restartBtn.addEventListener("click", () => {
+  if (!restartBtn.classList.contains("armed")) { restartBtn.classList.add("armed"); restartBtn.textContent = "もう一度押してやり直す"; sfx.ui(); return; }
+  closeOptions();
+  const fader = document.getElementById("fader");
+  fader.classList.add("on");
+  setTimeout(() => {
+    for (const b of [...items]) removeItem(b);
+    bulk = null; setDoors(0); sparks.length = 0; toastsEl.innerHTML = "";
+    S = freshState(); S.catalog = Array.from({ length: 6 }, randomCatalogThing);
+    running = false;
+    try { localStorage.removeItem(SAVE_KEY); } catch (e) {}
+    renderCatalog(); renderBalance(); lastHud = "";
+    document.getElementById("result").hidden = true;
+    document.getElementById("intro").hidden = false;
+    fader.classList.remove("on");
+  }, 600);
+});
+
 // ---------------------------------------------------------------- save / load (this device)
 const SAVE_KEY = "Alchemillion.save.v1";
 function save() {
@@ -902,5 +1045,6 @@ function start() {
   requestAnimationFrame(t => { last = t; frame(t); });
 }
 document.getElementById("startBtn").addEventListener("click", () => { audioInit(); sfx.ui(); document.getElementById("intro").hidden = true; running = true; save(); });
+// a run saved before the player pressed "研究をはじめる" still opens on the opening
 start();
 </script>
