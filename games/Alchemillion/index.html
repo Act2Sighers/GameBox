@@ -39,10 +39,14 @@ body {
 #frame { position: absolute; left: 50%; top: 50%; transform-origin: center; background: var(--bg); overflow: hidden; display: flex; }
 /* side panels: 提携 (alliances) on the left, 恩恵 (boons) on the right.
    wide: always shown beside the main column. portrait: drawers that slide in over it. */
-.sidepanel { box-sizing: border-box; width: 280px; flex: none; padding: 14px 12px; display: flex; flex-direction: column; gap: 10px;
-  background: color-mix(in srgb, var(--bg) 82%, #3a2214); overflow-y: auto; }
-.sidepanel h2 { margin: 0; font-size: 18px; font-weight: normal; letter-spacing: .2em; color: var(--ink); }
-.sidepanel .slotbox { flex: none; height: 118px; border: 2px solid var(--line); background: color-mix(in srgb, var(--panel) 70%, transparent); }
+.sidepanel { box-sizing: border-box; width: 280px; flex: none; padding: 14px 12px; display: flex; flex-direction: column; gap: 10px; background: var(--bg); }
+.sidepanel h2 { margin: 0; font-size: 20px; font-weight: normal; letter-spacing: .15em; color: var(--ink); display: flex; align-items: baseline; gap: 8px; }
+.sidepanel h2 small { font-size: 12px; letter-spacing: .04em; color: var(--muted); opacity: .8; }
+/* the list shows exactly four slots; drag on its empty parts (or use the wheel) to scroll */
+.slotlist { flex: none; height: 502px; overflow: hidden; position: relative; touch-action: none; cursor: grab; }
+.slottrack { display: flex; flex-direction: column; gap: 10px; will-change: transform; }
+.sidepanel .slotbox { flex: none; height: 118px; box-sizing: border-box; border: 2px solid var(--line); background: color-mix(in srgb, var(--panel) 70%, transparent); }
+.panelfoot { flex: 1; }   /* reserved for the researcher's picture later */
 #frame.portrait .sidepanel { position: absolute; top: 0; bottom: 0; width: 300px; z-index: 6; transition: transform .25s ease-out; box-shadow: 0 0 0 2px var(--line); }
 #frame.portrait #allyPanel { left: 0; transform: translateX(-104%); }
 #frame.portrait #boonPanel { right: 0; transform: translateX(104%); }
@@ -171,7 +175,7 @@ dl.stats dd { margin: 0; text-align: right; font-variant-numeric: tabular-nums; 
 </style>
 
 <div id="app"><div id="frame" class="portrait">
-<aside id="allyPanel" class="sidepanel" aria-label="提携"><h2>提携</h2><div class="slotbox"></div><div class="slotbox"></div><div class="slotbox"></div><div class="slotbox"></div><div class="slotbox"></div></aside>
+<aside id="allyPanel" class="sidepanel" aria-label="提携"><h2>提携<small>Cooperation</small></h2><div class="slotlist"><div class="slottrack"><div class="slotbox"></div><div class="slotbox"></div><div class="slotbox"></div><div class="slotbox"></div><div class="slotbox"></div><div class="slotbox"></div></div></div><div class="panelfoot"></div></aside>
 <div id="main">
   <header>
     <div class="hl">
@@ -200,7 +204,7 @@ dl.stats dd { margin: 0; text-align: right; font-variant-numeric: tabular-nums; 
   </div>
   <div id="hint">ドラッグ：ポータルを動かす　モノをタップ：売る　床の下をタップ：全部売る</div>
 </div>
-<aside id="boonPanel" class="sidepanel" aria-label="恩恵"><h2>恩恵</h2><div class="slotbox"></div><div class="slotbox"></div><div class="slotbox"></div><div class="slotbox"></div></aside>
+<aside id="boonPanel" class="sidepanel" aria-label="恩恵"><h2>恩恵<small>Boon of Elements</small></h2><div class="slotlist"><div class="slottrack"><div class="slotbox"></div><div class="slotbox"></div><div class="slotbox"></div><div class="slotbox"></div><div class="slotbox"></div><div class="slotbox"></div></div></div><div class="panelfoot"></div></aside>
 <div id="drawerShade" hidden></div>
 <div id="intro" class="overlay">
   <div class="sheet">
@@ -1396,6 +1400,46 @@ function fit() {
 }
 addEventListener("resize", () => { fitFrame(); fit(); });
 new ResizeObserver(fit).observe(labWrap);
+
+// ---------------------------------------------------------------- side panel lists: drag (or wheel) to scroll
+for (const list of document.querySelectorAll(".slotlist")) {
+  const track = list.firstElementChild;
+  let off = 0, grab = null;
+  const set = v => { off = Math.max(0, Math.min(Math.max(0, track.scrollHeight - list.clientHeight), v)); track.style.transform = `translateY(${-off}px)`; };
+  list.addEventListener("pointerdown", e => {
+    if (e.target.closest("button, a, input, [data-interactive]")) return; // controls placed in the slots later keep their own taps
+    grab = { id: e.pointerId, y0: e.clientY, off0: off }; list.setPointerCapture(e.pointerId);
+  });
+  list.addEventListener("pointermove", e => { if (grab && e.pointerId === grab.id) set(grab.off0 - (e.clientY - grab.y0) / uiScale); });
+  const drop = e => { if (grab && e.pointerId === grab.id) grab = null; };
+  list.addEventListener("pointerup", drop); list.addEventListener("pointercancel", drop);
+  list.addEventListener("wheel", e => { e.preventDefault(); set(off + e.deltaY / uiScale); }, { passive: false });
+}
+
+// Portrait: the strips beside the lab (its own edges, the margin next to it, and the dark border outside the
+// game screen) all open the side panels: tap, or swipe inwards.
+let edgePress = null;
+const overlayOpen = () => ["intro", "options", "book", "result"].some(id => !document.getElementById(id).hidden);
+appEl.addEventListener("pointerdown", e => {
+  if (drawer && e.target === appEl) { closeDrawer(); return; } // the dark border outside the game screen acts like the dimmed view
+  if (layout !== "portrait" || drawer || overlayOpen() || e.target.closest("#lab, button, .sidepanel, #drawerShade")) return;
+  const r = lab.getBoundingClientRect();
+  if (e.clientY < r.top || e.clientY > r.bottom) return;
+  const strip = EDGE / LAB_W * r.width;
+  const which = e.clientX < r.left + strip ? "ally" : e.clientX > r.right - strip ? "boon" : null;
+  if (which) edgePress = { id: e.pointerId, x0: e.clientX, which };
+});
+addEventListener("pointermove", e => {
+  if (!edgePress || e.pointerId !== edgePress.id) return;
+  const dx = e.clientX - edgePress.x0, inward = edgePress.which === "ally" ? dx : -dx;
+  if (inward > 24 * uiScale) { const w = edgePress.which; edgePress = null; openDrawer(w); }
+});
+addEventListener("pointerup", e => {
+  if (!edgePress || e.pointerId !== edgePress.id) return;
+  if (Math.abs(e.clientX - edgePress.x0) < 6) openDrawer(edgePress.which);
+  edgePress = null;
+});
+addEventListener("pointercancel", () => { edgePress = null; });
 
 // ---------------------------------------------------------------- start
 function start() {
