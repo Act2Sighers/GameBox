@@ -98,7 +98,7 @@ header { width: 100%; max-width: 480px; display: flex; align-items: flex-end; ju
 .book-prog { font-size: 12px; color: var(--muted); margin: 0; }
 #bookGrid { display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); gap: 4px; }
 .bcell { font: inherit; aspect-ratio: 1; padding: 0; display: grid; place-items: center; background: var(--bg); border: 2px solid var(--line); cursor: pointer; }
-.bcell canvas { width: 100%; max-width: 40px; image-rendering: pixelated; }
+.bcell canvas { width: 40px; height: 40px; image-rendering: pixelated; }
 .bcell.sel { border-color: var(--gold); }
 .bcell:focus-visible { outline: 2px solid var(--ink); outline-offset: 1px; }
 #bookDetail { min-height: 9em; border-top: 1px solid var(--line); padding-top: 10px; display: grid; gap: 6px; font-size: 13px; line-height: 1.6; }
@@ -244,8 +244,9 @@ const THINGS = {
     d.r(1, 1, 10, 8, "#e8c8c8"); d.r(0, 3, 12, 5, "#e8c8c8"); d.r(2, 1, 4, 3, "#f8e8ea"); d.r(6, 1, 4, 2, "#f0d4d6");
     d.r(7, 5, 4, 3, "#c8a0a8"); d.r(1, 6, 3, 2, "#d8b0b6"); d.r(6, 3, 1, 5, "#d0a8b0"); d.p(3, 2, "#ffffff"); d.p(9, 2, "#ffffff"); } },
   ironScrap: { name: "鉄くず", w: 14, h: 10, shape: "rect", buy: 6, sell: 3, draw: d => {
-    d.r(0, 3, 9, 6, "#7a7f88"); d.r(5, 0, 8, 6, "#8a8f99"); d.r(9, 5, 5, 4, "#6a6f78"); d.r(6, 1, 5, 1, "#b0b5c0");
-    d.p(2, 5, "#a0583a"); d.p(3, 6, "#a0583a"); d.p(11, 3, "#a0583a"); d.r(10, 7, 2, 1, "#a0583a"); } },
+    d.r(0, 5, 8, 4, "#6a6f78"); d.r(1, 5, 6, 1, "#8a8f99"); d.r(5, 0, 3, 7, "#7a7f88"); d.r(5, 0, 1, 7, "#9aa0aa");
+    d.r(8, 3, 6, 3, "#7a7f88"); d.r(8, 3, 6, 1, "#9aa0aa"); d.ell(11, 7.5, 2.5, 2.5, "#6a6f78"); d.p(11, 7, "#3a3d44");
+    d.r(1, 7, 3, 2, "#b8602e"); d.p(6, 2, "#b8602e"); d.p(6, 3, "#c87038"); d.r(9, 4, 2, 1, "#b8602e"); d.p(13, 8, "#c87038"); d.p(2, 6, "#d8884a"); } },
   flint: { name: "火打ち石", w: 10, h: 9, shape: "rect", buy: 8, sell: 4, tool: true, draw: d => {
     d.ell(5, 5, 5, 4, "#4a4a55"); d.r(2, 2, 3, 2, "#8a8a96"); d.p(1, 5, "#33333c"); d.p(8, 1, "#ffd860"); d.p(9, 0, "#fff0a0"); } },
   mushroom: { name: "光るキノコ", w: 13, h: 14, shape: "rect", buy: 9, sell: 4.5, frames: 2, draw: (d, w, h, f) => {
@@ -255,9 +256,9 @@ const THINGS = {
   sulfur: { name: "硫黄", w: 13, h: 12, shape: "rect", buy: 10, sell: 5, draw: d => {
     d.ell(6, 7.5, 6, 4.5, "#e0c838"); d.r(3, 2, 4, 6, "#f2e070"); d.r(7, 1, 3, 6, "#e8d040"); d.r(9, 4, 3, 4, "#d8c030");
     d.p(4, 2, "#fff8c0"); d.p(8, 1, "#fff8c0"); d.r(2, 9, 3, 1, "#b8a020"); d.r(8, 9, 3, 1, "#b8a020"); d.r(6, 2, 1, 5, "#c8b028"); } },
-  lead: { name: "鉛の塊", w: 16, h: 9, shape: "rect", buy: 12, sell: 6, draw: d => {
-    d.r(2, 0, 12, 3, "#8a90a0"); d.r(0, 3, 16, 6, "#6a7080"); d.r(1, 3, 14, 1, "#7e8494"); d.r(3, 1, 8, 1, "#a8aebd"); d.r(0, 8, 16, 1, "#565c6a");
-    d.r(6, 5, 4, 2, "#5a606e"); d.p(7, 5, "#7e8494"); } },
+  lead: { name: "鉛の塊", w: 15, h: 11, shape: "rect", buy: 12, sell: 6, draw: d => {
+    d.ell(7.5, 6.5, 7.5, 4.5, "#545a72"); d.ell(6.5, 5, 5.5, 3.5, "#626882"); d.ell(5, 4, 2.5, 1.5, "#767c96");
+    d.ell(10.5, 7.5, 1.6, 1.2, "#444a60"); d.ell(4, 8, 1.2, 0.9, "#444a60"); d.r(3, 10, 9, 1, "#3e435a"); } },
   mercury: { name: "水銀の瓶", w: 11, h: 16, shape: "rect", buy: 14, sell: 7, draw: (d, w, h) => { bottle(d, w, h, "#b8bccc", 7, "#5a4a6a"); d.r(4, 12, 3, 1, "#f0f2ff"); } },
   hammer: { name: "金槌", w: 22, h: 11, shape: "rect", buy: 15, sell: 7.5, tool: true, draw: d => {
     d.r(0, 4, 16, 3, "#a87240"); d.r(0, 4, 16, 1, "#c89058"); d.r(15, 0, 7, 11, "#8a8f99"); d.r(15, 0, 7, 2, "#b0b5c0"); d.r(14, 3, 1, 5, "#6a6f78"); } },
@@ -274,14 +275,18 @@ const THINGS = {
     d.r(0, 0, 16, 8, "#b0503a"); d.r(0, 0, 16, 1, "#c86a50"); d.r(0, 7, 16, 1, "#8a3a28"); d.r(15, 1, 1, 6, "#9a4230");
     for (const [x, y, c] of [[3, 3, "#d88a6a"], [11, 4, "#d88a6a"], [7, 5, "#8a3a28"], [5, 2, "#9a4230"], [13, 2, "#c86a50"], [9, 3, "#9a4230"]]) d.p(x, y, c); } },
   ingot: { name: "鉄塊", w: 18, h: 9, shape: "rect", sell: 20, draw: d => {
-    d.r(2, 0, 14, 3, "#b8bec8"); d.r(0, 3, 18, 6, "#9aa0aa"); d.r(1, 3, 16, 1, "#c8ced8"); d.r(0, 8, 18, 1, "#7a808a"); d.r(4, 1, 6, 1, "#e0e4ec"); } },
+    d.r(2, 0, 14, 3, "#8e949e"); d.r(0, 3, 18, 6, "#6e747e"); d.r(1, 3, 16, 1, "#9ca2ac"); d.r(0, 8, 18, 1, "#50555e");
+    d.r(4, 1, 5, 1, "#b0b6c0"); d.p(5, 5, "#5a5f68"); d.p(9, 6, "#5a5f68"); d.p(13, 5, "#5a5f68"); d.p(11, 1, "#7a808a"); } },
   tonic: { name: "薬草水", w: 11, h: 16, shape: "rect", sell: 14, draw: (d, w, h) => { bottle(d, w, h, "#8ac070", 8); d.p(4, 12, "#4f8a43"); d.p(6, 13, "#4f8a43"); } },
   healing: { name: "回復薬", w: 12, h: 17, shape: "rect", sell: 40, draw: (d, w, h) => { bottle(d, w, h, "#d84a5a", 10, "#c89058"); d.r(5, 12, 2, 1, "#ffb0b8"); } },
   mana: { name: "魔力の薬", w: 12, h: 17, shape: "rect", sell: 120, draw: (d, w, h) => { bottle(d, w, h, "#4a6ad8", 10, "#c89058"); d.p(4, 11, "#c0d0ff"); d.p(7, 13, "#c0d0ff"); d.p(6, 9, "#ffffff"); } },
   elixir: { name: "エリクサー", w: 13, h: 20, shape: "rect", sell: 400, draw: (d, w, h) => {
     bottle(d, w, h, "#f0b030", 12, "#e8b84a"); d.r(4, 2, 5, 1, "#e8b84a"); d.p(5, 12, "#fff0b0"); d.p(8, 15, "#fff0b0"); d.p(6, 17, "#ffffff"); } },
-  cinnabar: { name: "辰砂", w: 12, h: 12, shape: "circle", sell: 45, draw: d => {
-    d.ell(6, 6, 6, 6, "#a82830"); d.r(2, 3, 4, 4, "#d8404a"); d.r(6, 6, 4, 3, "#c8323a"); d.p(3, 3, "#ff9aa0"); d.p(8, 9, "#781820"); } },
+  cinnabar: { name: "辰砂", w: 13, h: 11, shape: "rect", sell: 45, draw: d => {
+    d.ell(6.5, 8.5, 6.5, 2.5, "#6a4a40"); d.r(1, 8, 11, 1, "#7a5a4e");
+    d.r(2, 3, 3, 6, "#c83a2a"); d.r(2, 3, 1, 6, "#e8604a"); d.p(3, 2, "#c83a2a");
+    d.r(5, 0, 4, 9, "#b02a20"); d.r(5, 0, 2, 9, "#e04a36"); d.p(6, 0, "#ff9a80");
+    d.r(9, 4, 3, 5, "#c83a2a"); d.r(9, 4, 1, 5, "#e8604a"); d.p(10, 3, "#c83a2a"); } },
   tria: { name: "三原質の結晶", w: 14, h: 16, shape: "rect", sell: 110, draw: d => {
     d.r(3, 0, 8, 16, "#e8e0d0"); d.r(1, 3, 12, 10, "#e8e0d0"); d.r(1, 3, 4, 10, "#d84a4a"); d.r(9, 3, 4, 10, "#e8d040"); d.r(3, 0, 2, 3, "#d84a4a"); d.r(9, 0, 2, 3, "#e8d040");
     d.r(9, 13, 2, 3, "#e8d040"); d.r(3, 13, 2, 3, "#d84a4a"); d.r(6, 2, 2, 5, "#ffffff"); } },
@@ -299,7 +304,9 @@ const THINGS = {
     d.ell(7, 7, 7, 7, "#a0102e"); d.ell(7, 7, 5.5, 5.5, "#e01848"); d.r(3, 6, 8, 2, "#c01038"); d.r(6, 3, 2, 8, "#c01038");
     d.ell(5, 5, 2, 1.5, "#ff8aa0"); d.p(4, 4, "#ffffff"); d.p(10, 10, "#700820"); } },
   silver: { name: "銀塊", w: 18, h: 9, shape: "rect", sell: 600, draw: d => {
-    d.r(2, 0, 14, 3, "#eef0f8"); d.r(0, 3, 18, 6, "#c8ccd8"); d.r(1, 3, 16, 1, "#ffffff"); d.r(0, 8, 18, 1, "#9aa0b0"); d.r(12, 5, 3, 1, "#ffffff"); } },
+    d.r(2, 0, 14, 3, "#f4f6fc"); d.r(0, 3, 18, 6, "#d4dae8"); d.r(1, 3, 16, 1, "#ffffff"); d.r(0, 8, 18, 1, "#9aa4bc");
+    d.r(7, 4, 4, 3, "#b4c0dc"); d.p(9, 4, "#ffffff"); d.p(8, 5, "#ffffff"); d.p(10, 5, "#8c98b8"); d.p(9, 6, "#8c98b8");
+    d.r(3, 1, 6, 1, "#ffffff"); d.r(14, 5, 2, 1, "#e8f0ff"); } },
   gold: { name: "金塊", w: 18, h: 9, shape: "rect", sell: 1500, draw: d => {
     d.r(2, 0, 14, 3, "#ffe070"); d.r(0, 3, 18, 6, "#f0b830"); d.r(1, 3, 16, 1, "#fff0a8"); d.r(0, 8, 18, 1, "#b88018"); d.r(4, 1, 6, 1, "#ffffff"); d.r(12, 5, 3, 1, "#fff8d0"); } },
   crown: { name: "黄金の冠", w: 22, h: 14, shape: "rect", sell: 5000, draw: d => {
@@ -319,11 +326,13 @@ const THINGS = {
     d.ell(7, 5.5, 2, 2, "#ffffff"); d.p(13, 13, "#ffffff"); } },
   elixirOfLife: { name: "命の霊薬", w: 14, h: 24, shape: "rect", sell: 15000, draw: (d, w, h) => {
     bottle(d, w, h, "#ff7ac8", 15, "#e8b84a"); d.r(4, 2, 6, 1, "#e8b84a"); d.ell(7, 18, 3, 3, "#ffd0f0"); d.p(5, 11, "#ffffff"); d.p(9, 14, "#fff0a0"); d.p(4, 16, "#fff0a0"); } },
-  royalCrown: { name: "王者の宝冠", w: 28, h: 20, shape: "rect", sell: 30000, draw: d => {
-    d.r(1, 10, 26, 10, "#f0b830"); d.r(1, 17, 26, 3, "#b88018");
-    for (const [x, t] of [[1, 4], [7, 2], [12, 6], [19, 2], [25, 4]]) d.r(x, t, 2, 10 - t, "#f0b830");
-    d.ell(14, 6, 4.5, 4.5, "#9a7ae0"); d.ell(13, 5, 1.5, 1.5, "#ffffff");
-    d.r(4, 12, 3, 3, "#d0303a"); d.r(21, 12, 3, 3, "#30a050"); d.r(12, 12, 4, 3, "#e01848"); d.r(2, 10, 24, 1, "#fff0a8"); } },
+  royalCrown: { name: "王者の宝冠", w: 30, h: 22, shape: "rect", sell: 30000, draw: d => {
+    d.r(1, 12, 28, 10, "#dfe4ee"); d.r(1, 19, 28, 3, "#a8aec0"); d.r(2, 12, 26, 1, "#ffffff"); d.r(1, 16, 28, 1, "#bcc2d2");
+    for (const [x, top] of [[1, 5], [7, 3], [21, 3], [27, 5]]) { d.r(x, top + 1, 2, 12 - top, "#dfe4ee"); d.p(x, top, "#ffffff"); d.p(x + 1, top, "#c8a8ff"); }
+    d.r(12, 7, 6, 6, "#dfe4ee");
+    d.ell(15, 5.5, 4.5, 4.5, "#6a4ab0"); d.ell(15, 5.5, 3.5, 3.5, "#9a7ae0"); d.ell(14, 4.5, 1.5, 1.5, "#ffffff");
+    d.r(4, 14, 3, 3, "#3a6ad8"); d.p(4, 14, "#a0c0ff"); d.r(23, 14, 3, 3, "#30a050"); d.p(23, 14, "#a0f0b0");
+    d.r(13, 14, 4, 3, "#e01848"); d.p(13, 14, "#ff9aa0"); d.r(9, 15, 2, 2, "#9a7ae0"); d.r(19, 15, 2, 2, "#9a7ae0"); } },
 };
 for (const [id, t] of Object.entries(THINGS)) {
   t.id = id;
@@ -331,6 +340,9 @@ for (const [id, t] of Object.entries(THINGS)) {
   t.img = t.imgs[0];
   t.sellC = M(t.sell); if (t.buy) t.buyC = M(t.buy);
 }
+// animation speed (frames per second)
+Object.assign(THINGS.campfire, { fps: 4.5 }); Object.assign(THINGS.furnace, { fps: 3.5 });
+Object.assign(THINGS.mushroom, { fps: 1.1 }); Object.assign(THINGS.crystalBall, { fps: 0.8 });
 // shiny things twinkle now and then
 for (const id of ["glass", "mirror", "silver", "gold", "crown", "royalCrown", "philosopherStone", "crystalBall", "elixir", "elixirOfLife"]) THINGS[id].shine = true;
 // catalog list with how often each appears
@@ -342,11 +354,13 @@ const FUSE = [
   ["herb", "water", "tonic"], ["healing", "mushroom", "mana"], ["mana", "healing", "elixir"],
   ["sulfur", "mercury", "cinnabar"], ["cinnabar", "salt", "tria"], ["brick", "brick", "furnace"],
   ["redPowder", "elixir", "philosopherStone"], ["glass", "mercury", "mirror"], ["glass", "mana", "crystalBall"],
-  ["crown", "crystalBall", "royalCrown"],
+  ["crown", "crystalBall", "royalCrown"], ["wood", "ingot", "hammer"],
 ];
 const IMPROVE = [ // [target, tool, result]
   ["wood", "flint", "campfire"], ["wood", "campfire", "campfire"], ["sand", "campfire", "glass"], ["clay", "campfire", "brick"], ["ironScrap", "campfire", "ingot"],
-  ["tonic", "campfire", "healing"], ["tria", "furnace", "redPowder"], ["ingot", "philosopherStone", "silver"],
+  ["tonic", "campfire", "healing"], ["tria", "furnace", "redPowder"],
+  // the furnace is a fire kept safely inside: it does what the campfire does, except setting wood alight
+  ["sand", "furnace", "glass"], ["clay", "furnace", "brick"], ["ironScrap", "furnace", "ingot"], ["tonic", "furnace", "healing"], ["ingot", "philosopherStone", "silver"],
   ["lead", "philosopherStone", "gold"], ["elixir", "philosopherStone", "elixirOfLife"], ["ingot", "hammer", "sword"], ["gold", "hammer", "crown"],
 ];
 const pairKey = (a, b) => a < b ? `${a}|${b}` : `${b}|${a}`;
@@ -527,13 +541,18 @@ for (let i = 0; i < 6; i++) {
   b.addEventListener("click", () => buy(i));
   catalogEl.append(b); cards.push(b);
 }
-function iconOf(type, cv) {
+// Icons fill their box (so a whole series of bottles or bars shows at about the same size), drawn at device
+// resolution. On dense screens the scale may be fractional (a dot is 4 or 5 device pixels, which the eye
+// cannot tell apart); on 1x screens it stays a whole number so dots remain even.
+function iconOf(type, cv, css = 40) {
+  const dpr = devicePixelRatio || 1, D = Math.round(css * dpr);
+  if (cv.width !== D) { cv.width = D; cv.height = D; }
   const g = cv.getContext("2d"), img = THINGS[type].img;
-  g.clearRect(0, 0, 40, 40); g.imageSmoothingEnabled = false;
-  const k = Math.max(1, Math.min(2, Math.floor(36 / Math.max(img.width, img.height)) || 1));
-  const s = Math.min(k, 36 / Math.max(img.width, img.height));
-  const w = img.width * s, h = img.height * s;
-  g.drawImage(img, Math.round((40 - w) / 2), Math.round((40 - h) / 2), w, h);
+  g.clearRect(0, 0, D, D); g.imageSmoothingEnabled = false;
+  const fit = D * 0.9 / Math.max(img.width, img.height);
+  const k = dpr >= 2 ? fit : Math.max(1, Math.floor(fit));
+  const w = Math.round(img.width * k), h = Math.round(img.height * k);
+  g.drawImage(img, Math.round((D - w) / 2), Math.round((D - h) / 2), w, h);
 }
 function renderCatalog(anim) {
   cards.forEach((c, i) => {
@@ -721,7 +740,7 @@ function render(time, dt) {
   const pb = portalBlocked();
   drawPortal(time, pb.stuck);
   for (const b of items) {
-    const t = THINGS[b.thing], img = t.imgs[Math.floor(time * 7 + b.id * 0.37) % t.imgs.length];
+    const t = THINGS[b.thing], img = t.imgs[Math.floor(time * (t.fps || 1) + b.id * 0.37) % t.imgs.length];
     labCtx.save();
     labCtx.translate(b.position.x, b.position.y); labCtx.rotate(b.angle);
     labCtx.drawImage(img, -img.width / 2, -img.height / 2);
@@ -773,7 +792,7 @@ const bookCells = BOOK_ORDER.map(id => {
 function silhouette(type, cv) {
   iconOf(type, cv);
   const g = cv.getContext("2d");
-  g.globalCompositeOperation = "source-in"; g.fillStyle = "#3a3050"; g.fillRect(0, 0, 40, 40); g.globalCompositeOperation = "source-over";
+  g.globalCompositeOperation = "source-in"; g.fillStyle = "#3a3050"; g.fillRect(0, 0, cv.width, cv.height); g.globalCompositeOperation = "source-over";
 }
 function renderBook() {
   const seenCount = book.things.size, total = BOOK_ORDER.length, rk = book.recipes.size;
