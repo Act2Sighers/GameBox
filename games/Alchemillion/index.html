@@ -175,12 +175,12 @@ dl.stats dd { margin: 0; text-align: right; font-variant-numeric: tabular-nums; 
   <div id="catalog" role="toolbar" aria-label="カタログ"></div>
   <div id="labWrap">
     <div id="labBox">
-      <canvas id="lab" width="180" height="250" aria-label="研究室"></canvas>
+      <canvas id="lab" width="180" height="280" aria-label="研究室"></canvas>
       <div id="toasts" aria-live="polite"></div>
       <div id="blocked" hidden>ポータルがふさがっています。モノを売って空けてください</div>
     </div>
   </div>
-  <div id="hint">ドラッグ：ポータルを動かす　モノをタップ：売る　床をタップ：全部売る</div>
+  <div id="hint">ドラッグ：ポータルを動かす　モノをタップ：売る　床の下をタップ：全部売る</div>
 </div>
 <div id="intro" class="overlay">
   <div class="sheet">
@@ -190,7 +190,7 @@ dl.stats dd { margin: 0; text-align: right; font-variant-numeric: tabular-nums; 
     <ul>
       <li>カタログのモノをタップすると買って、上のポータルから落とす</li>
       <li>研究室のモノは、相性のいいモノと触れると反応して、より高価なモノになる</li>
-      <li>研究室をドラッグするとポータルが動く。モノをタップすると売れる。床をタップすると床が開いて、全部まとめて売れる</li>
+      <li>研究室をドラッグするとポータルが動く。モノをタップすると売れる。床の下の土をタップすると床が開いて、全部まとめて売れる</li>
       <li>残高はマイナスになっても大丈夫</li>
     </ul>
     <button class="btn" id="startBtn" type="button">研究をはじめる</button>
@@ -518,6 +518,8 @@ addEventListener("pointerdown", audioInit, { once: true });
 
 // ---------------------------------------------------------------- state
 const LAB_W = 180, LAB_H = 250, PORTAL_Y = 7, PORTAL_HALF = 14, FLOOR_H = 8;
+const VIEW_H = 280; // the canvas also shows 30 dots of earth below the floor (tap there to sell everything)
+const SELL_ZONE_Y = LAB_H + 6; // taps at or below this line open the floor
 let S; // everything that is saved
 function freshState() {
   return {
@@ -542,8 +544,8 @@ engine.gravity.scale = 0.0007;
 const world = engine.world;
 const wallOpts = { isStatic: true, friction: 0.5, label: "wall" };
 Composite.add(world, [
-  Bodies.rectangle(-20, LAB_H / 2 - 100, 40, LAB_H + 300, wallOpts),
-  Bodies.rectangle(LAB_W + 20, LAB_H / 2 - 100, 40, LAB_H + 300, wallOpts),
+  Bodies.rectangle(-20, LAB_H / 2 - 60, 40, LAB_H + 380, wallOpts),
+  Bodies.rectangle(LAB_W + 20, LAB_H / 2 - 60, 40, LAB_H + 380, wallOpts),
 ]);
 // The floor is two stone leaves hinged at the walls. Tapping the floor swings them down (a sale of everything).
 const FLOOR_TOP = LAB_H - FLOOR_H, LEAF_T = FLOOR_H + 14, LEAF_W = LAB_W / 2 + 1;
@@ -770,7 +772,7 @@ function gainMana(kind, n, x, y, overEl) {
   if (overEl) {
     const main = document.getElementById("main");
     popAt(kind, n, main, overEl.offsetLeft + overEl.offsetWidth / 2 + "px", overEl.offsetTop + overEl.offsetHeight / 2 + "px");
-  } else popAt(kind, n, labBox, `${x / LAB_W * 100}%`, `${y / LAB_H * 100}%`);
+  } else popAt(kind, n, labBox, `${x / LAB_W * 100}%`, `${y / VIEW_H * 100}%`);
 }
 
 // ---------------------------------------------------------------- catalog
@@ -900,7 +902,7 @@ function portalBlocked() {
 // ---------------------------------------------------------------- input on the lab: drag = move the portal, tap = sell
 const lab = document.getElementById("lab"), labCtx = lab.getContext("2d");
 let press = null;
-const toWorld = e => { const r = lab.getBoundingClientRect(); return { x: (e.clientX - r.left) / r.width * LAB_W, y: (e.clientY - r.top) / r.height * LAB_H }; };
+const toWorld = e => { const r = lab.getBoundingClientRect(); return { x: (e.clientX - r.left) / r.width * LAB_W, y: (e.clientY - r.top) / r.height * VIEW_H }; };
 lab.addEventListener("pointerdown", e => {
   if (press) return;
   lab.setPointerCapture(e.pointerId);
@@ -930,7 +932,7 @@ function pressEnd(e) {
     }
   }
   if (hit) sell(hit);
-  else if (w.y >= FLOOR_TOP - 1 && !bulk) startBulkSale(); // the floor itself
+  else if (w.y >= SELL_ZONE_Y && !bulk) startBulkSale(); // the earth below the floor (the floor itself does nothing)
 }
 lab.addEventListener("pointerup", pressEnd);
 lab.addEventListener("pointercancel", pressEnd);
@@ -1027,9 +1029,21 @@ const BG = (() => {
   r(118, 140, 52, 3, "#6e4826"); r(120, 143, 2, 4, "#5a3820"); r(166, 143, 2, 4, "#5a3820");
   for (const [x, c, h] of [[122, "#c86a8a", 8], [130, "#e0c060", 6], [137, "#7fc0d8", 9], [146, "#9a7ac8", 7], [154, "#6aa86a", 8], [161, "#d8834a", 6]]) { r(x, 140 - h, 6, h, c); r(x + 1, 140 - h - 2, 4, 2, "#a87240"); r(x + 1, 140 - h + 1, 1, h - 2, "rgba(255,255,255,0.5)"); }
 
-  const c = document.createElement("canvas"); c.width = LAB_W; c.height = LAB_H;
+  const c = document.createElement("canvas"); c.width = LAB_W; c.height = VIEW_H;
   const out = c.getContext("2d");
   out.fillStyle = "#2a1d14"; out.fillRect(0, 0, LAB_W, LAB_H);
+  // earth below the floor: darker than the lab, a few stones, and a coin between down arrows
+  out.fillStyle = "#140d08"; out.fillRect(0, LAB_H, LAB_W, VIEW_H - LAB_H);
+  for (let k = 0; k < 70; k++) {
+    const x = Math.floor(rnd() * LAB_W), y = LAB_H + 1 + Math.floor(rnd() * (VIEW_H - LAB_H - 2)), big = rnd() < 0.3;
+    out.fillStyle = rnd() < 0.5 ? "#21160e" : "#0c0805"; out.fillRect(x, y, big ? 3 : 2, big ? 2 : 1);
+  }
+  out.fillStyle = "#1c130c"; for (let x = 0; x < LAB_W; x += 2) out.fillRect(x, LAB_H + 4 + Math.round(Math.sin(x * 0.17) * 1.5), 1, 1);
+  const cy = LAB_H + 16, sign = "#6a5228", signHi = "#8a6c34";
+  const arrow = cx => { out.fillStyle = sign; out.fillRect(cx - 1, cy - 7, 3, 7); for (let i = 0; i < 5; i++) out.fillRect(cx - 4 + i, cy + i - 1, 9 - i * 2, 1); };
+  for (const cx of [62, 76, 104, 118]) arrow(cx);
+  for (let y = -6; y <= 6; y++) for (let x = -6; x <= 6; x++) if (x * x + y * y <= 40) { out.fillStyle = x * x + y * y >= 26 ? sign : signHi; out.fillRect(90 + x, cy + y, 1, 1); }
+  out.fillStyle = "#3a2c16"; out.fillRect(88, cy - 3, 1, 6); out.fillRect(92, cy - 3, 1, 6); out.fillRect(89, cy - 2, 1, 1); out.fillRect(91, cy - 2, 1, 1); out.fillRect(90, cy - 1, 1, 1); // "M" for マニ
   out.globalAlpha = 0.4; out.drawImage(scene, 0, 0); out.globalAlpha = 1;
   // the pit under the floor (seen while the floor is open)
   out.fillStyle = "#0e0905"; out.fillRect(0, FLOOR_TOP, LAB_W, FLOOR_H);
@@ -1144,8 +1158,8 @@ function frame(now) {
   if (steps === 4) acc = 0;
   // things that fall out through the open floor are sold; anything else that slipped out is dropped
   for (const b of [...items]) {
-    if (bulk && b.position.y > LAB_H + 14) sellFallen(b);
-    else if (b.position.y > LAB_H + 60) removeItem(b);
+    if (bulk && b.position.y > VIEW_H + 14) sellFallen(b);
+    else if (b.position.y > VIEW_H + 60) removeItem(b);
   }
   updateBulk(dtMs / 1000);
   updateLiquid(dtMs / 1000); updateSteam(dtMs / 1000);
@@ -1320,8 +1334,8 @@ function setLayout(v) {
 }
 // The lab fills its area of the game screen, the same way whatever the window (the canvas is drawn pixelated).
 function fit() {
-  const css = Math.min((labWrap.clientWidth - 4) / LAB_W, (labWrap.clientHeight - 4) / LAB_H);
-  labBox.style.width = LAB_W * css + "px"; labBox.style.height = LAB_H * css + "px";
+  const css = Math.min((labWrap.clientWidth - 4) / LAB_W, (labWrap.clientHeight - 4) / VIEW_H);
+  labBox.style.width = LAB_W * css + "px"; labBox.style.height = VIEW_H * css + "px";
 }
 addEventListener("resize", () => { fitFrame(); fit(); });
 new ResizeObserver(fit).observe(labWrap);
