@@ -37,8 +37,25 @@ body {
   padding-left: env(safe-area-inset-left, 0px); padding-right: env(safe-area-inset-right, 0px);
 }
 #frame { position: absolute; left: 50%; top: 50%; transform-origin: center; background: var(--bg); overflow: hidden; display: flex; }
-#side { flex: 1; min-width: 0; }               /* wide layout: kept free for later additions */
-#frame.portrait #side { display: none; }
+/* side panels: 提携 (alliances) on the left, 恩恵 (boons) on the right.
+   wide: always shown beside the main column. portrait: drawers that slide in over it. */
+.sidepanel { box-sizing: border-box; width: 280px; flex: none; padding: 14px 12px; display: flex; flex-direction: column; gap: 10px;
+  background: color-mix(in srgb, var(--bg) 82%, #3a2214); overflow-y: auto; }
+.sidepanel h2 { margin: 0; font-size: 18px; font-weight: normal; letter-spacing: .2em; color: var(--ink); }
+.sidepanel .slotbox { flex: none; height: 118px; border: 2px solid var(--line); background: color-mix(in srgb, var(--panel) 70%, transparent); }
+#frame.portrait .sidepanel { position: absolute; top: 0; bottom: 0; width: 300px; z-index: 6; transition: transform .25s ease-out; box-shadow: 0 0 0 2px var(--line); }
+#frame.portrait #allyPanel { left: 0; transform: translateX(-104%); }
+#frame.portrait #boonPanel { right: 0; transform: translateX(104%); }
+#frame.portrait #allyPanel.open, #frame.portrait #boonPanel.open { transform: none; }
+#drawerShade { position: absolute; inset: 0; z-index: 5; background: rgba(20, 12, 6, .5); touch-action: none; }
+#frame.wide #drawerShade { display: none !important; }
+#frame.wide #main { order: 2; } #frame.wide #allyPanel { order: 1; } #frame.wide #boonPanel { order: 3; }
+/* portrait: small pull tabs on the lab's edges */
+.edgetab { position: absolute; top: 46%; width: 9px; height: 46px; display: grid; place-items: center; font-size: 10px; color: #f2e6d0;
+  background: rgba(242, 230, 208, .18); pointer-events: none; }
+.edgetab.l { left: 0; } .edgetab.r { right: 0; }
+#frame.wide .edgetab { display: none; }
+@media (prefers-reduced-motion: reduce) { #frame.portrait .sidepanel { transition: none; } }
 #main { position: relative; width: 400px; flex: none; box-sizing: border-box; padding: 10px 16px; display: flex; flex-direction: column; gap: 8px; }
 header { display: flex; align-items: flex-end; justify-content: space-between; gap: 12px; }
 .hl { display: grid; gap: 0; min-width: 0; }
@@ -154,7 +171,7 @@ dl.stats dd { margin: 0; text-align: right; font-variant-numeric: tabular-nums; 
 </style>
 
 <div id="app"><div id="frame" class="portrait">
-<div id="side"></div>
+<aside id="allyPanel" class="sidepanel" aria-label="提携"><h2>提携</h2><div class="slotbox"></div><div class="slotbox"></div><div class="slotbox"></div><div class="slotbox"></div><div class="slotbox"></div></aside>
 <div id="main">
   <header>
     <div class="hl">
@@ -177,11 +194,14 @@ dl.stats dd { margin: 0; text-align: right; font-variant-numeric: tabular-nums; 
     <div id="labBox">
       <canvas id="lab" width="180" height="280" aria-label="研究室"></canvas>
       <div id="toasts" aria-live="polite"></div>
+      <div class="edgetab l" aria-hidden="true">›</div><div class="edgetab r" aria-hidden="true">‹</div>
       <div id="blocked" hidden>ポータルがふさがっています。モノを売って空けてください</div>
     </div>
   </div>
   <div id="hint">ドラッグ：ポータルを動かす　モノをタップ：売る　床の下をタップ：全部売る</div>
 </div>
+<aside id="boonPanel" class="sidepanel" aria-label="恩恵"><h2>恩恵</h2><div class="slotbox"></div><div class="slotbox"></div><div class="slotbox"></div><div class="slotbox"></div></aside>
+<div id="drawerShade" hidden></div>
 <div id="intro" class="overlay">
   <div class="sheet">
     <h1><span>Alche</span>million</h1>
@@ -192,6 +212,7 @@ dl.stats dd { margin: 0; text-align: right; font-variant-numeric: tabular-nums; 
       <li>研究室のモノは、相性のいいモノと触れると反応して、より高価なモノになる</li>
       <li>研究室をドラッグするとポータルが動く。モノをタップすると売れる。床の下の土をタップすると床が開いて、全部まとめて売れる</li>
       <li>残高はマイナスになっても大丈夫</li>
+      <li>縦長の画面では、研究室の左端・右端をタップするか内側へスライドすると「提携」「恩恵」が開く</li>
     </ul>
     <button class="btn" id="startBtn" type="button">研究をはじめる</button>
   </div>
@@ -903,14 +924,22 @@ function portalBlocked() {
 const lab = document.getElementById("lab"), labCtx = lab.getContext("2d");
 let press = null;
 const toWorld = e => { const r = lab.getBoundingClientRect(); return { x: (e.clientX - r.left) / r.width * LAB_W, y: (e.clientY - r.top) / r.height * VIEW_H }; };
+// Portrait only: a strip at each side edge of the lab opens a side panel (tap, or swipe inwards from it).
+const EDGE = 12; // dots
+function edgeAt(x) { return layout !== "portrait" ? null : x < EDGE ? "ally" : x > LAB_W - EDGE ? "boon" : null; }
 lab.addEventListener("pointerdown", e => {
   if (press) return;
   lab.setPointerCapture(e.pointerId);
-  press = { id: e.pointerId, x0: e.clientX, portal0: S.portalX, drag: false };
+  press = { id: e.pointerId, x0: e.clientX, portal0: S.portalX, drag: false, edge: edgeAt(toWorld(e).x) };
 });
 lab.addEventListener("pointermove", e => {
   if (!press || e.pointerId !== press.id) return;
   const dx = e.clientX - press.x0;
+  // a swipe inwards that started on an edge strip opens that side's panel instead of moving the portal
+  if (!press.drag && press.edge && ((press.edge === "ally" && dx > 6) || (press.edge === "boon" && dx < -6))) {
+    if (Math.abs(dx) > 24 * uiScale) { const which = press.edge; press = null; openDrawer(which); }
+    return;
+  }
   if (!press.drag && Math.abs(dx) > 6) press.drag = true;
   if (press.drag) {
     const r = lab.getBoundingClientRect();
@@ -932,8 +961,36 @@ function pressEnd(e) {
     }
   }
   if (hit) sell(hit);
+  else if (p.edge && Math.abs(e.clientX - p.x0) < 6) openDrawer(p.edge); // tap on an edge strip
   else if (w.y >= SELL_ZONE_Y && !bulk) startBulkSale(); // the earth below the floor (the floor itself does nothing)
 }
+// ---------------------------------------------------------------- side panels (提携 / 恩恵) as drawers in portrait
+const allyPanel = document.getElementById("allyPanel"), boonPanel = document.getElementById("boonPanel"), drawerShade = document.getElementById("drawerShade");
+let drawer = null; // "ally" | "boon" | null
+function openDrawer(which) {
+  if (layout !== "portrait") return;
+  drawer = which; sfx.ui();
+  allyPanel.classList.toggle("open", which === "ally"); boonPanel.classList.toggle("open", which === "boon");
+  drawerShade.hidden = false;
+}
+function closeDrawer() {
+  if (!drawer) return;
+  drawer = null;
+  allyPanel.classList.remove("open"); boonPanel.classList.remove("open");
+  drawerShade.hidden = true;
+}
+// close: tap the dimmed main view, or swipe back towards the side the panel came from (on the panel or the dim)
+let shut = null;
+for (const el of [drawerShade, allyPanel, boonPanel]) {
+  el.addEventListener("pointerdown", e => { if (drawer) shut = { id: e.pointerId, x0: e.clientX, onShade: el === drawerShade }; });
+  el.addEventListener("pointerup", e => {
+    if (!shut || e.pointerId !== shut.id) return;
+    const dx = e.clientX - shut.x0, back = drawer === "ally" ? dx < -24 * uiScale : dx > 24 * uiScale;
+    if (back || (shut.onShade && Math.abs(dx) < 6)) closeDrawer();
+    shut = null;
+  });
+}
+addEventListener("keydown", e => { if (e.key === "Escape") closeDrawer(); });
 lab.addEventListener("pointerup", pressEnd);
 lab.addEventListener("pointercancel", pressEnd);
 
@@ -1310,7 +1367,7 @@ document.addEventListener("visibilitychange", () => { if (document.hidden) save(
 // ---------------------------------------------------------------- sizing: the lab keeps its 180x250 shape, scaled up in whole device pixels when it fits
 const labWrap = document.getElementById("labWrap"), labBox = document.getElementById("labBox");
 const frameEl = document.getElementById("frame"), appEl = document.getElementById("app");
-const LAYOUT_SIZE = { portrait: [400, 800], wide: [960, 800] }; // the game screen in its own pixels
+const LAYOUT_SIZE = { portrait: [400, 800], wide: [960, 800] }; // the game screen in its own pixels (wide: 280 + 400 + 280)
 let layout = (() => { try { const v = localStorage.getItem("Alchemillion.layout"); if (LAYOUT_SIZE[v]) return v; } catch (e) {} return innerWidth / innerHeight > 0.9 ? "wide" : "portrait"; })();
 let uiScale = 1;
 // The chosen layout is never changed to suit the window: the whole screen is scaled to fit and the rest is margin.
@@ -1328,7 +1385,7 @@ function fitFrame() {
   if (Math.abs(s - uiScale) > 0.001) { uiScale = s; if (S) renderCatalog(); }
 }
 function setLayout(v) {
-  layout = v;
+  layout = v; closeDrawer();
   try { localStorage.setItem("Alchemillion.layout", v); } catch (e) {}
   fitFrame(); fit();
 }
