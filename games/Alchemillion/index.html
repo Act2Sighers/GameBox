@@ -692,8 +692,8 @@ Object.entries({ water: "#9fd4f4", mercury: "#a8acb8", tonic: "#a8d870", healing
 for (const id of ["glass", "mirror", "silver", "gold", "crown", "royalCrown", "philosopherStone", "crystalBall", "elixir", "elixirOfLife",
   "ice", "pikara", "secretMedicine", "worldSeed", "worldSprout"]) THINGS[id].shine = true;
 // catalog list with how often each appears
-const CATALOG_POOL = { sand: 10, water: 10, wood: 10, clay: 9, herb: 10, salt: 7, ironScrap: 8, flint: 5, mushroom: 6, sulfur: 6, lead: 7, mercury: 6, hammer: 3 };
-const NATURE_POOL = { wood: 9, water: 10, herb: 9, meraBundle: 7, hieBundle: 7, mushroom: 6, swampShroom: 7, flagstone: 8, shears: 4, bone: 7, stump: 6 };
+const CATALOG_POOL = { sand: 10, water: 10, wood: 10, clay: 9, herb: 10, salt: 7, ironScrap: 8, flint: 8, mushroom: 6, sulfur: 6, lead: 7, mercury: 6, hammer: 3 };
+const NATURE_POOL = { wood: 9, water: 10, herb: 9, meraBundle: 7, hieBundle: 7, mushroom: 6, swampShroom: 7, flagstone: 11, shears: 4, bone: 7, stump: 6 };
 // 提携: every shop keeps its own catalog. Shops whose catalog is not made yet draw from the standard list.
 const SHOPS = [
   { id: "tool", name: "道具屋", cat: "標準" }, { id: "nature", name: "薬草取り", cat: "自然" }, { id: "mine", name: "採掘家", cat: "鉱山" },
@@ -838,14 +838,36 @@ function freshState() {
     stats: { buyTotal: 0, buyCount: 0, sellTotal: 0, sellCount: 0, maxOnBoard: 0, best: null, minBalance: M(50) },
   };
 }
-const newEntry = () => ({ t: randomCatalogThing(), p: 0 });
-const freshCatalog = () => Array.from({ length: 6 }, newEntry);
+// what is around when a slot is filled: the things in the catalog and in the lab
+const onHand = (extra = []) => [...(S?.catalog || []).map(e => e.t), ...[...items].map(b => b.thing), ...extra];
+const newEntry = () => ({ t: randomCatalogThing(onHand()), p: 0 });
+function freshCatalog() {
+  const c = [];
+  for (let i = 0; i < 6; i++) c.push({ t: randomCatalogThing([...[...items].map(b => b.thing), ...c.map(e => e.t)]), p: 0 });
+  return c;
+}
 const plusMul = p => 1 + (p || 0); // "+N" doubles, triples, ... the price
-function randomCatalogThing() {
-  const entries = Object.entries(SHOP_POOL[S?.shop] || CATALOG_POOL), sum = entries.reduce((s, [, w]) => s + w, 0);
+// One draw in three looks for something that reacts with what is already around (a recipe not found yet counts three times),
+// so the first reactions are not left to luck. Otherwise the shop's list is drawn as it is.
+const LEAD_CHANCE = 1 / 3;
+function pickWeighted(entries) {
+  const sum = entries.reduce((s, [, w]) => s + w, 0);
   let r = Math.random() * sum;
   for (const [id, w] of entries) { r -= w; if (r <= 0) return id; }
   return entries[0][0];
+}
+function randomCatalogThing(around = []) {
+  const pool = Object.entries(SHOP_POOL[S?.shop] || CATALOG_POOL);
+  if (around.length && Math.random() < LEAD_CHANCE) {
+    const near = new Set(around), leads = [];
+    for (const [id, w] of pool) {
+      let k = 0;
+      for (const o of near) { const r = REACTIONS.get(pairKey(id, o)); if (r) k = Math.max(k, book.recipes.has(r.key) ? 1 : 3); }
+      if (k) leads.push([id, w * k]);
+    }
+    if (leads.length) return pickWeighted(leads);
+  }
+  return pickWeighted(pool);
 }
 
 // ---------------------------------------------------------------- physics
@@ -1036,6 +1058,39 @@ function spill(first, used) {
   for (const b of gone) { shards(b.position.x, b.position.y); S.liquid.color = THINGS[b.thing].liquid; removeItem(b); }
   S.liquid.n += gone.length;
   sfx.crash();
+  splash(gone.map(b => ({ x: b.position.x, y: b.position.y, col: THINGS[b.thing].liquid })), used);
+}
+// 吸水: every 【水飲み】 thing within the splash of a broken vial turns into the next thing (one step per splash).
+// The liquid itself is not used up.
+const SPLASH_R = 16;
+const splashes = []; // { x, y, col, t } rings drawn spreading out
+const distToBox = (p, bb) => Math.hypot(Math.max(bb.min.x - p.x, 0, p.x - bb.max.x), Math.max(bb.min.y - p.y, 0, p.y - bb.max.y));
+function splash(centers, used) {
+  const now = performance.now();
+  for (const c of centers) splashes.push({ ...c, t: 0 });
+  const hit = [...items].filter(b => THINGS[b.thing].drinker && !used.has(b) && b.calm <= now && centers.some(c => distToBox(c, b.bounds) <= SPLASH_R));
+  const told = new Set();
+  for (const b of hit) {
+    const r = ABSORB_OF[b.thing], { x, y } = b.position;
+    used.add(transform(b, r.out, b.plus || 0, true)); // plants grow upright
+    burst(x, y, "#9fd4f4"); gainMana("plant", 1, x, y);
+    if (!told.has(r)) { told.add(r); announce(r, "absorb"); }
+  }
+}
+function drawSplashes(dt) {
+  for (let i = splashes.length - 1; i >= 0; i--) {
+    const sp = splashes[i]; sp.t += dt;
+    const k = sp.t / 0.4;
+    if (k >= 1) { splashes.splice(i, 1); continue; }
+    const r = SPLASH_R * (1 - (1 - k) * (1 - k));
+    labCtx.globalAlpha = 1 - k * k;
+    for (const [rr, col] of [[r, "#ffffff"], [r - 1, sp.col]]) {
+      if (rr < 1) continue;
+      labCtx.fillStyle = col;
+      for (let a = 0; a < Math.PI * 2; a += 0.9 / rr) labCtx.fillRect(Math.round(sp.x + Math.cos(a) * rr), Math.round(sp.y + Math.sin(a) * rr), 1, 1);
+    }
+  }
+  labCtx.globalAlpha = 1;
 }
 function announce(r, kind) {
   const isNew = !book.recipes.has(r.key);
@@ -1050,22 +1105,11 @@ const liquidHeight = () => Math.min(S.liquid.n * LIQ_STEP, FLOOR_TOP - 40);
 let drainFrom = 0, drainT = 1, evapT = 0;
 const steam = []; // { x, y } rising puffs
 // While part of an ember is under the surface, the liquid boils away one vial's worth at a time.
-let absorbT = 0, freezeT = 0;
+let freezeT = 0;
 const lowestUnder = (surface, ok) => { let low = null; for (const b of items) if (ok(THINGS[b.thing], b) && b.bounds.max.y > surface && (!low || b.position.y > low.position.y)) low = b; return low; };
 function updateLiquid(dt) {
   if (drainT < 1) drainT += dt / 0.45;
-  evapT -= dt; absorbT -= dt; freezeT -= dt;
-  // 吸水: the lowest 【水飲み】 thing reaching into the liquid changes, using up one vial's worth
-  if (S.liquid.n && absorbT <= 0) {
-    const now = performance.now(), d = lowestUnder(FLOOR_TOP - liquidHeight(), (t, b) => t.drinker && b.calm <= now);
-    if (d) {
-      const r = ABSORB_OF[d.thing], { x, y } = d.position;
-      transform(d, r.out, d.plus || 0, true); // plants grow upright
-      S.liquid.n--; absorbT = 0.12;
-      burst(x, y, "#9fd4f4"); announce(r, "absorb");
-      gainMana("plant", 1, x, y);
-    }
-  }
+  evapT -= dt; freezeT -= dt;
   // 蒸発 / 凍結: something 【高温】 under the surface boils the liquid away, something 【極低温】 freezes it into ice.
   // With both under the surface (水温均衡) neither happens.
   if (!S.liquid.n) return;
@@ -1559,6 +1603,7 @@ function render(time, dt) {
     labCtx.restore();
   }
   drawLiquid(time);
+  drawSplashes(dt);
   for (const b of items) if (b.plus) drawPlus(b.plus, b.position.x, b.position.y);
   drawSteam(time);
   for (let i = sparks.length - 1; i >= 0; i--) {
@@ -1724,7 +1769,7 @@ restartBtn.addEventListener("click", () => {
     S = freshState(); S.catalog = freshCatalog();
     running = false;
     try { localStorage.removeItem(SAVE_KEY); } catch (e) {}
-    steam.length = 0; drainT = 1;
+    steam.length = 0; splashes.length = 0; drainT = 1;
     renderCatalog(); renderBalance(); renderMana(); renderShops(); lastHud = "";
     document.getElementById("result").hidden = true;
     document.getElementById("intro").hidden = false;
