@@ -53,6 +53,11 @@ body {
 .shop-open { grid-row: 1 / span 2; grid-column: 2; align-self: center; font: inherit; font-size: 12px; padding: 6px 8px; background: var(--gold); color: var(--btn-ink); border: 0; cursor: pointer; }
 .shop-open:disabled { background: transparent; color: var(--gold); border: 1px solid var(--gold); cursor: default; }
 .shop-open:focus-visible { outline: 2px solid var(--ink); outline-offset: 1px; }
+.slotbox.shop.locked { background: color-mix(in srgb, var(--line) 55%, var(--panel)); border-color: color-mix(in srgb, var(--line) 80%, #000); }
+.slotbox.shop.locked .shop-name, .slotbox.shop.locked .shop-cat { opacity: .75; }
+.shop-open.ally { background: var(--ink); color: var(--panel); line-height: 1.35; }
+.shop-open.ally small { display: block; font-size: 11px; }
+.shop-open.ally:disabled { background: transparent; color: var(--ink); border: 1px solid currentColor; opacity: .55; }
 .slotbox.shop.current { border-color: var(--gold); background: color-mix(in srgb, var(--panel) 90%, var(--gold)); }   /* reserved for the researcher's picture later */
 #frame.portrait .sidepanel { position: absolute; top: 0; bottom: 0; width: 300px; z-index: 6; transition: transform .25s ease-out; box-shadow: 0 0 0 2px var(--line); }
 #frame.portrait #allyPanel { left: 0; transform: translateX(-104%); }
@@ -76,7 +81,8 @@ header { display: flex; align-items: flex-end; justify-content: space-between; g
 .hbtn:focus-visible { outline: 2px solid var(--ink); outline-offset: 1px; }
 .hbtn.gear { display: grid; place-items: center; padding: 6px 9px; }
 .hr { display: grid; justify-items: end; gap: 6px; }
-#mana { display: flex; gap: 8px; font-size: 13px; font-variant-numeric: tabular-nums; color: var(--ink); }
+#mana { display: flex; justify-content: flex-end; gap: 10px; margin: -12px 0 -2px; line-height: 16px; font-size: 13px; font-variant-numeric: tabular-nums; color: var(--ink); }
+#mana span[hidden] { display: none; }
 #mana span { display: flex; align-items: center; gap: 2px; }
 #mana img { width: 14px; height: 14px; image-rendering: pixelated; }
 .card { position: relative; }
@@ -87,6 +93,8 @@ header { display: flex; align-items: flex-end; justify-content: space-between; g
 .pop.fire { color: #ff5a4a; --pop-edge: #2a0c08; }
 .pop.water { color: #5aa8ff; --pop-edge: #08142a; }
 .pop.wind { color: #ffffff; --pop-edge: #2a2a34; }
+.pop.plant { color: #5ad85a; --pop-edge: #082a0c; }
+.pop.bolt { color: #ffd84a; --pop-edge: #2a2208; }
 .pop.earth { color: #141010; --pop-edge: #f2e6d0; }
 @keyframes pop { 0% { opacity: 0; margin-top: 4px; } 15% { opacity: 1; margin-top: 0; } 70% { opacity: 1; } 100% { opacity: 0; margin-top: -22px; } }
 .seg { display: grid; grid-template-columns: 1fr 1fr; border: 2px solid var(--line); }
@@ -106,6 +114,7 @@ header { display: flex; align-items: flex-end; justify-content: space-between; g
 @media (prefers-reduced-motion: reduce) { #fader { transition: none; } }
 .title { font-size: 15px; letter-spacing: .08em; color: var(--muted); }
 .title b { color: var(--gold); font-weight: normal; }
+.title { white-space: nowrap; }
 #shopLabel { color: var(--ink); margin-left: 6px; letter-spacing: .02em; }
 #balance { font-size: 26px; font-variant-numeric: tabular-nums; color: var(--ink); white-space: nowrap; }
 #balance small { font-size: 15px; color: var(--muted); margin-left: 2px; }
@@ -199,9 +208,9 @@ dl.stats dd { margin: 0; text-align: right; font-variant-numeric: tabular-nums; 
         <svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true"><g fill="currentColor"><rect x="10" y="1" width="4" height="22"/><rect x="10" y="1" width="4" height="22" transform="rotate(45 12 12)"/><rect x="10" y="1" width="4" height="22" transform="rotate(90 12 12)"/><rect x="10" y="1" width="4" height="22" transform="rotate(135 12 12)"/><circle cx="12" cy="12" r="7.5"/></g><circle cx="12" cy="12" r="3" fill="var(--panel)"/></svg>
       </button>
     </div>
-    <div id="mana" aria-label="魔素"></div>
     </div>
   </header>
+  <div id="mana" aria-label="魔素"></div>
   <div id="notice" hidden>研究室のモノを全部売れば、残高が 1,000,000M に届きます</div>
   <div id="catalog" role="toolbar" aria-label="カタログ"></div>
   <div id="labWrap">
@@ -262,6 +271,9 @@ dl.stats dd { margin: 0; text-align: right; font-variant-numeric: tabular-nums; 
     <div class="opt">
       <button id="bookResetBtn" class="optbtn" type="button">図鑑をリセットする</button>
       <p class="opt-note" id="bookResetNote" hidden>図鑑をリセットしました。</p>
+    </div>
+    <div class="opt">
+      <button id="debugMoneyBtn" class="optbtn" type="button">10,000マニを獲得(デバッグ用)</button>
     </div>
     <div class="opt">
       <button id="restartBtn" type="button">最初からやり直す</button>
@@ -584,8 +596,8 @@ const SELL_ZONE_Y = LAB_H + 6; // taps at or below this line open the floor
 let S; // everything that is saved
 function freshState() {
   return {
-    balance: M(50), catalog: [], shop: "tool", shopCatalogs: {}, portalX: LAB_W / 2, things: [], playMs: 0, cleared: false,
-    mana: { fire: 0, water: 0, wind: 0, earth: 0 }, liquid: { n: 0, color: "#9fd4f4" },
+    balance: M(50), catalog: [], shop: "tool", shopCatalogs: {}, allied: ["tool"], portalX: LAB_W / 2, things: [], playMs: 0, cleared: false,
+    mana: { fire: 0, water: 0, wind: 0, earth: 0, plant: 0, bolt: 0 }, liquid: { n: 0, color: "#9fd4f4" },
     stats: { buyTotal: 0, buyCount: 0, sellTotal: 0, sellCount: 0, maxOnBoard: 0, best: null, minBalance: M(50) },
   };
 }
@@ -777,6 +789,7 @@ function updateLiquid(dt) {
       removeItem(d); spawn(r.out, x, y, d.angle, d.velocity, d.plus || 0);
       S.liquid.n--; absorbT = 0.12;
       burst(x, y, "#9fd4f4"); announce(r, "absorb");
+      gainMana("plant", 1, x, y);
     }
   }
   // 蒸発: while part of a 【高温】 thing is under the surface, the liquid boils away one vial's worth at a time
@@ -830,15 +843,23 @@ function burst(x, y, col) {
 }
 
 // ---------------------------------------------------------------- mana (魔素): fire / water / wind / earth
-const MANA = { fire: "#e0402e", water: "#3a6ad8", wind: "#f4f4f8", earth: "#1e1a1a" };
-const MANA_NAME = { fire: "火", water: "水", wind: "風", earth: "土" };
+const MANA = { fire: "#e0402e", water: "#3a6ad8", wind: "#f4f4f8", earth: "#1e1a1a", plant: "#3cb44a", bolt: "#f0c820" };
+const MANA_NAME = { fire: "火", water: "水", wind: "風", earth: "土", plant: "草花", bolt: "稲妻" };
+// 草花 and 稲妻 only exist while allied with the shop that deals in them
+const MANA_SHOP = { plant: "nature", bolt: "machine" };
+const manaShown = k => !MANA_SHOP[k] || (S?.allied || []).includes(MANA_SHOP[k]);
 const ORB_ICON = Object.fromEntries(Object.entries(MANA).map(([k, col]) => [k, art(7, 7, d => {
   d.ell(3.5, 3.5, 3.5, 3.5, col); d.ell(3, 3, 1.8, 1.8, k === "earth" ? "#4a4440" : k === "wind" ? "#ffffff" : col);
   d.p(2, 1, k === "earth" ? "#8a8480" : "#ffffff"); d.p(1, 2, k === "earth" ? "#5a5450" : "#ffffffaa");
 }).toDataURL()]));
 const manaEl = document.getElementById("mana");
 manaEl.innerHTML = Object.keys(MANA).map(k => `<span title="${MANA_NAME[k]}の魔素"><img src="${ORB_ICON[k]}" alt="${MANA_NAME[k]}"><b id="mana-${k}">0</b></span>`).join("");
-function renderMana() { for (const k of Object.keys(MANA)) document.getElementById("mana-" + k).textContent = S.mana[k]; }
+function renderMana() {
+  for (const k of Object.keys(MANA)) {
+    const el = document.getElementById("mana-" + k);
+    el.textContent = S.mana[k]; el.parentElement.hidden = !manaShown(k);
+  }
+}
 // "+N" floating up where the mana was gained: in the lab (lab coordinates) or over an element on screen
 function popAt(kind, n, host, left, top) {
   const el = document.createElement("div");
@@ -847,7 +868,7 @@ function popAt(kind, n, host, left, top) {
   host.append(el); setTimeout(() => el.remove(), 1150);
 }
 function gainMana(kind, n, x, y, overEl) {
-  if (!n) return;
+  if (!n || !manaShown(kind)) return;
   S.mana[kind] += n; renderMana();
   if (overEl) {
     const main = document.getElementById("main");
@@ -1058,6 +1079,7 @@ const balanceEl = document.getElementById("balance"), noticeEl = document.getEle
 function renderBalance() {
   balanceEl.innerHTML = `${fmt(S.balance)}<small>M</small>`;
   balanceEl.classList.toggle("minus", S.balance < 0);
+  renderShops();
 }
 const toastsEl = document.getElementById("toasts");
 function toast(text, kind) {
@@ -1395,6 +1417,11 @@ document.getElementById("optClose").addEventListener("click", closeOptions);
 optEl.addEventListener("pointerdown", e => { if (e.target === optEl) closeOptions(); });
 addEventListener("keydown", e => { if (e.key === "Escape" && !optEl.hidden) closeOptions(); });
 sndButtons.forEach(b => b.addEventListener("click", () => { setSound(b.dataset.snd === "on"); renderOptions(); }));
+document.getElementById("debugMoneyBtn").addEventListener("click", () => {
+  if (!running || S.cleared) return;
+  S.balance += M(10000); sfx.coin(); renderBalance(); save();
+  if (S.balance >= GOAL) { closeOptions(); clear(); }
+});
 restartBtn.addEventListener("click", () => {
   if (!restartBtn.classList.contains("armed")) { restartBtn.classList.add("armed"); restartBtn.textContent = "もう一度押してやり直す"; sfx.ui(); return; }
   closeOptions();
@@ -1430,7 +1457,8 @@ function load() {
     d.catalog = d.catalog.map(e => typeof e === "string" ? { t: e, p: 0 } : e); // older saves kept plain ids
     const okCat = c => Array.isArray(c) && c.length === 6 && c.every(e => THINGS[e?.t]?.buy && Number.isInteger(e.p));
     if (!okCat(d.catalog)) return null;
-    if (!SHOPS.some(sh => sh.id === d.shop)) d.shop = "tool";
+    d.allied = ["tool", ...new Set((Array.isArray(d.allied) ? d.allied : []).filter(k => k !== "tool" && SHOPS.some(sh => sh.id === k)))];
+    if (!d.allied.includes(d.shop)) { d.shop = "tool"; d.catalog = okCat(d.shopCatalogs?.tool) ? d.shopCatalogs.tool : d.catalog; }
     d.shopCatalogs = Object.fromEntries(Object.entries(d.shopCatalogs || {}).filter(([k, c]) => SHOPS.some(sh => sh.id === k) && k !== d.shop && okCat(c)));
     return d;
   } catch (e) { return null; }
@@ -1480,21 +1508,35 @@ const shopSlots = SHOPS.map(sh => {
   el.innerHTML = `<div class="shop-name"></div><div class="shop-cat"></div><button class="shop-open" type="button">カタログを開く</button>`;
   el.querySelector(".shop-name").textContent = sh.name;
   el.querySelector(".shop-cat").textContent = `《${sh.cat}カタログ》`;
-  el.querySelector("button").addEventListener("click", () => switchShop(sh.id));
+  el.querySelector("button").addEventListener("click", () => S.allied.includes(sh.id) ? switchShop(sh.id) : ally(sh.id));
   shopTrack.append(el);
   return el;
 });
+// Allying with a shop costs 10,000M for the first, 30,000M for the second, 50,000M for the third, ... (provisional)
+const allyCost = () => M(10000 + 20000 * (S.allied.length - 1));
 function renderShops() {
+  const cost = allyCost();
   SHOPS.forEach((sh, i) => {
-    const cur = S.shop === sh.id, btn = shopSlots[i].querySelector("button");
+    const cur = S.shop === sh.id, open = S.allied.includes(sh.id), btn = shopSlots[i].querySelector("button");
     shopSlots[i].classList.toggle("current", cur);
-    btn.disabled = cur; btn.textContent = cur ? "開いている" : "カタログを開く";
+    shopSlots[i].classList.toggle("locked", !open);
+    btn.classList.toggle("ally", !open);
+    if (open) { btn.disabled = cur; btn.textContent = cur ? "開いている" : "カタログを開く"; }
+    else { btn.disabled = S.balance < cost; btn.innerHTML = `提携を結ぶ<small>（必要額：${(cost / 100).toLocaleString("en-US")}M）</small>`; }
   });
   document.getElementById("shopLabel").textContent = `《${SHOPS.find(sh => sh.id === S.shop).cat}》`;
 }
+function ally(id) {
+  const cost = allyCost();
+  if (S.allied.includes(id) || S.balance < cost) return;
+  S.balance -= cost; S.allied.push(id);
+  S.stats.minBalance = Math.min(S.stats.minBalance, S.balance);
+  toast(`${SHOPS.find(sh => sh.id === id).name}と提携を結んだ　－${(cost / 100).toLocaleString("en-US")}M`, "react"); sfx.sell(cost);
+  renderBalance(); renderMana(); save();
+}
 // The shop being left remembers its six slots; the shop being opened brings back its own (or a fresh set).
 function switchShop(id) {
-  if (id === S.shop || gathering) return;
+  if (id === S.shop || gathering || !S.allied.includes(id)) return;
   S.shopCatalogs[S.shop] = S.catalog;
   S.shop = id;
   S.catalog = S.shopCatalogs[id] || freshCatalog();
