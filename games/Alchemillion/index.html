@@ -49,13 +49,13 @@ body {
 .panelfoot { flex: 1; }
 .slotbox.shop { display: grid; grid-template-columns: 1fr auto; grid-template-rows: auto auto 1fr; padding: 8px 10px; gap: 2px 8px; align-content: start; }
 .shop-name { font-size: 16px; color: var(--ink); }
-.shop-cat { font-size: 12px; color: var(--muted); grid-column: 1; }
+.shop-cat { font-size: 12px; color: var(--muted); grid-column: 1; white-space: nowrap; }
 .shop-open { grid-row: 1 / span 2; grid-column: 2; align-self: center; font: inherit; font-size: 12px; padding: 6px 8px; background: var(--gold); color: var(--btn-ink); border: 0; cursor: pointer; }
 .shop-open:disabled { background: transparent; color: var(--gold); border: 1px solid var(--gold); cursor: default; }
 .shop-open:focus-visible { outline: 2px solid var(--ink); outline-offset: 1px; }
 .slotbox.shop.locked { background: color-mix(in srgb, var(--line) 55%, var(--panel)); border-color: color-mix(in srgb, var(--line) 80%, #000); }
 .slotbox.shop.locked .shop-name, .slotbox.shop.locked .shop-cat { opacity: .75; }
-.shop-open.ally { background: var(--ink); color: var(--panel); line-height: 1.35; }
+.shop-open.ally { background: var(--ink); color: var(--panel); line-height: 1.35; padding: 5px 6px; }
 .shop-open.ally small { display: block; font-size: 11px; }
 .shop-open.ally:disabled { background: transparent; color: var(--ink); border: 1px solid currentColor; opacity: .55; }
 .slotbox.shop.current { border-color: var(--gold); background: color-mix(in srgb, var(--panel) 90%, var(--gold)); }   /* reserved for the researcher's picture later */
@@ -176,7 +176,7 @@ header { display: flex; align-items: flex-end; justify-content: space-between; g
 .book-prog { font-size: 12px; color: var(--muted); margin: 0; }
 .book-pages { grid-template-columns: repeat(auto-fit, minmax(0, 1fr)); }
 .book-pages button { font-size: 14px; padding: 7px 0; }
-#bookGrid { display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); gap: 4px; }
+#bookGrid { display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); gap: 4px; max-height: 232px; overflow-y: auto; overscroll-behavior: contain; }
 .bcell { font: inherit; aspect-ratio: 1; padding: 0; display: grid; place-items: center; background: var(--bg); border: 2px solid var(--line); cursor: pointer; }
 .bcell canvas { width: 40px; height: 40px; image-rendering: pixelated; }
 .bcell.sel { border-color: var(--gold); }
@@ -343,6 +343,83 @@ function bottle(d, w, h, liquid, level, cork = "#a0703c") {
   d.r(2, 5, 1, Math.max(2, h - 10), "#ffffffcc");
 }
 
+// a tied bunch of leaves (the 草の束 things): [dark, mid, light, tip]
+function bundle(d, [k, m, l, tip]) {
+  d.ell(7, 6, 6.5, 6, k); d.ell(4.5, 5, 3, 3.5, m); d.ell(9.5, 4.5, 2.8, 3.2, m); d.ell(7, 2.5, 2, 2.5, l);
+  d.p(1, 3, m); d.p(12, 2, m); d.p(7, 0, tip); d.r(4, 3, 1, 4, k); d.r(9, 2, 1, 4, k);
+  d.r(6, 9, 2, 4, "#5d6a3e"); d.r(5, 10, 4, 1, "#c8a050"); d.p(3, 3, tip); d.p(10, 2, tip); d.p(5, 7, l);
+}
+// a glowing mushroom cap (育った光るキノコ)
+function glowCap(d, cx, cy, rx, ry, f) {
+  d.ell(cx, cy, rx, ry, f ? "#4ac8c0" : "#3fb8b0"); d.ell(cx, cy - 1, rx - 1.5, ry - 1, f ? "#80e8e0" : "#6ad8d0");
+  d.r(Math.round(cx - rx + 1), Math.round(cy + ry - 1), Math.round(rx * 2 - 2), 1, "#2a8a84"); d.p(Math.round(cx - rx / 2), Math.round(cy - ry / 2), "#d8fff8");
+}
+// a murky, drooping mushroom: cap centred at cx, top at y = top, total height h
+function swampCap(d, cx, top, rx, h) {
+  const ry = rx * 0.7, cy = top + ry, sx = Math.round(cx) - 1;
+  d.r(sx, Math.round(cy), 3, Math.round(top + h - cy), "#b8b098"); d.r(sx, Math.round(cy), 1, Math.round(top + h - cy), "#d0c8b0"); d.r(sx - 1, top + h - 1, 5, 1, "#8a8270");
+  d.ell(cx, cy, rx, ry, "#5a4a6a"); d.ell(cx, cy - 1, rx - 1.2, ry - 1, "#7a6a8a");
+  d.r(Math.round(cx - rx + 1), Math.round(cy + ry - 1), Math.round(2 * rx - 2), 1, "#3a3048");
+  d.p(Math.round(cx - rx + 0.5), Math.round(cy + ry - 0.5), "#5a4a6a"); d.p(Math.round(cx + rx - 1.5), Math.round(cy + ry - 0.5), "#5a4a6a");
+  d.p(Math.round(cx - rx / 2), Math.round(cy - ry / 2), "#9ac080"); d.p(Math.round(cx + rx / 3), Math.round(cy - ry / 2 - 0.5), "#9ac080"); d.p(Math.round(cx + rx / 2), Math.round(cy), "#7aa060");
+}
+// three seeds (9 x 7)
+function seeds(d, c1, c2, c3) {
+  d.ell(2.5, 4.3, 2.5, 2.2, c1); d.ell(6.5, 4.7, 2.5, 2.2, c1); d.ell(4.5, 2.4, 2.3, 2, c2);
+  d.p(1, 4, c2); d.p(6, 4, c2); d.p(4, 1, c3);
+}
+// a seedling with its root ball
+function sprout(d, w, h, leaf, leaf2, stem) {
+  const cx = w / 2;
+  d.ell(cx, h - 3, w / 2 - 1, 3, "#5e3e28"); d.p(Math.round(cx) - 2, h - 4, "#7a5438"); d.p(Math.round(cx) + 2, h - 2, "#4a3020");
+  d.r(Math.round(cx) - 1, 4, 2, h - 7, stem);
+  if (h >= 16) { d.ell(cx - 2.5, 8.5, 2.5, 1.5, leaf); d.ell(cx + 2.5, 7.5, 2.5, 1.5, leaf); }
+  d.ell(cx - 3, 4.5, 3, 1.8, leaf); d.ell(cx + 3, 3.5, 3, 1.8, leaf); d.ell(cx, 1.8, 1.6, 1.8, leaf2);
+  d.p(Math.round(cx - 4), 4, leaf2); d.p(Math.round(cx + 3), 3, leaf2);
+}
+// a grown plant (16 x 20 at ox, oy): [stem, dark leaf, leaf, light]
+function bush(d, ox, oy, [stem, l1, l2, l3]) {
+  d.ell(ox + 8, oy + 17.5, 7, 2.5, "#5e3e28"); d.p(ox + 4, oy + 17, "#7a5438");
+  d.r(ox + 7, oy + 6, 2, 11, stem); d.r(ox + 4, oy + 9, 1, 6, stem); d.r(ox + 11, oy + 8, 1, 7, stem);
+  d.ell(ox + 4, oy + 8, 3.5, 2.5, l1); d.ell(ox + 12, oy + 7, 3.5, 2.5, l1); d.ell(ox + 8, oy + 4, 4, 3, l1);
+  d.ell(ox + 5, oy + 12, 3, 2, l2); d.ell(ox + 11, oy + 12, 3, 2, l2); d.ell(ox + 8, oy + 3, 2, 1.5, l2);
+  d.p(ox + 3, oy + 7, l3); d.p(ox + 12, oy + 6, l3); d.p(ox + 8, oy + 2, l3); d.p(ox + 6, oy + 11, l3);
+}
+// a stump (24 x 18): [bark, light, dark, top, rings]
+function stumpArt(d, [bark, barkL, barkD, top, ring], moss) {
+  d.r(2, 4, 20, 12, bark); d.r(3, 6, 1, 8, barkL); for (const x of [6, 11, 15, 19]) d.r(x, 6 + (x % 2), 1, 8, barkD);
+  d.r(0, 14, 5, 4, bark); d.r(19, 14, 5, 4, bark); d.r(2, 16, 20, 2, barkD); d.r(0, 14, 2, 1, barkL);
+  d.ell(12, 4, 10, 3.5, top); d.ell(12, 4, 7, 2.4, ring); d.ell(12, 4, 4, 1.4, top); d.p(12, 4, ring);
+  if (moss) { d.r(3, 7, 3, 2, "#7cc066"); d.p(17, 10, "#7cc066"); d.p(9, 12, "#7cc066"); d.r(15, 0, 1, 3, "#5d8a4e"); d.p(16, 0, "#a8e090"); d.p(14, 1, "#a8e090"); }
+}
+// a tree filling w x h; grown trees have a thicker trunk. dots: fruits (or sparkles for the world tree) as fractions of w, h
+const TREE_PAL = { bark: "#6a4220", barkL: "#8a5a30", barkD: "#4a2c14", leafD: "#2f5a2a", leaf: "#3f7a3a", leafL: "#6fae5a", tex: "#24461f" };
+const FRUIT_PAL = { bark: "#7a4a2a", barkL: "#9a6a40", barkD: "#52301a", leafD: "#3a6a30", leaf: "#4f8a43", leafL: "#8ccc70", tex: "#2c5226" };
+const WORLD_PAL = { bark: "#b8a070", barkL: "#e0d0a0", barkD: "#806a40", leafD: "#2f7a40", leaf: "#4c9e52", leafL: "#b0e880", tex: "#24603a", spark: true };
+function tree(d, w, h, pal, grown, dots = [], cols = []) {
+  const trunkTop = Math.round(h * 0.5), tw = Math.max(4, Math.round(w * (grown ? 0.18 : 0.13))), tx = Math.round(w / 2 - tw / 2), th = h - trunkTop - 2;
+  d.r(tx - 3, h - 4, tw + 6, 2, pal.bark); d.r(tx - 6, h - 2, tw + 12, 2, pal.barkD); d.r(tx - 6, h - 2, 2, 1, pal.bark);
+  d.r(tx, trunkTop, tw, th, pal.bark); d.r(tx, trunkTop, 1, th, pal.barkL); d.r(tx + tw - 1, trunkTop, 1, th, pal.barkD);
+  for (let y = trunkTop + 3; y < h - 4; y += 5) { d.p(tx + 2, y, pal.barkD); d.p(tx + tw - 3, y + 2, pal.barkD); }
+  const cy = h * (grown ? 0.33 : 0.35), ry = h * (grown ? 0.32 : 0.3), rx = w / 2;
+  if (!grown) pal = { ...pal, leafD: pal.leaf, leaf: pal.leafL, leafL: "#c8f0a8", tex: pal.leafD }; // a young tree is lighter and thinner
+  d.ell(w / 2, cy, rx, ry, pal.leafD);
+  d.ell(w * 0.28, cy + ry * 0.25, w * 0.22, ry * 0.55, pal.leaf); d.ell(w * 0.72, cy + ry * 0.2, w * 0.22, ry * 0.55, pal.leaf);
+  d.ell(w * 0.5, cy - ry * 0.3, w * 0.3, ry * 0.5, pal.leaf);
+  d.ell(w * 0.42, cy - ry * 0.55, w * 0.13, ry * 0.22, pal.leafL); d.ell(w * 0.22, cy, w * 0.07, ry * 0.16, pal.leafL); d.ell(w * 0.7, cy - ry * 0.05, w * 0.07, ry * 0.15, pal.leafL);
+  const hash = n => { n = Math.imul(n ^ (n >>> 15), 0x2c1b3c6d); n = Math.imul(n ^ (n >>> 12), 0x297a2d39); return ((n ^ (n >>> 15)) >>> 0) / 4294967296; };
+  for (let i = 0; i < w * h / (grown ? 22 : 34); i++) {
+    const x = Math.floor(hash(i * 2 + w) * w), y = Math.floor(cy - ry + hash(i * 2 + 1 + h) * ry * 2);
+    const dx = (x + 0.5 - w / 2) / rx, dy = (y + 0.5 - cy) / ry;
+    if (dx * dx + dy * dy < 0.8) d.p(x, y, i % 5 ? pal.tex : pal.leafL);
+  }
+  for (const [fx, fy] of dots) {
+    const x = Math.round(fx * w), y = Math.round(fy * h);
+    if (pal.spark) { d.p(x, y, cols[1]); d.p(x - 1, y, cols[0]); d.p(x + 1, y, cols[0]); d.p(x, y - 1, cols[0]); d.p(x, y + 1, cols[0]); }
+    else { const r = grown ? 1.7 : 1.2; d.ell(x + 0.5, y + 0.5, r, r, cols[0]); d.p(x, y, cols[1]); }
+  }
+}
+
 // ---------------------------------------------------------------- the things (モノ)
 // shape: "circle" (w = h = diameter) or "rect". buy = catalog price (only catalog things), sell = sale price.
 const THINGS = {
@@ -456,7 +533,121 @@ const THINGS = {
     d.r(12, 7, 6, 6, "#dfe4ee");
     d.ell(15, 5.5, 4.5, 4.5, "#6a4ab0"); d.ell(15, 5.5, 3.5, 3.5, "#9a7ae0"); d.ell(14, 4.5, 1.5, 1.5, "#ffffff");
     d.r(4, 14, 3, 3, "#3a6ad8"); d.p(4, 14, "#a0c0ff"); d.r(23, 14, 3, 3, "#30a050"); d.p(23, 14, "#a0f0b0");
-    d.r(13, 14, 4, 3, "#e01848"); d.p(13, 14, "#ff9aa0"); d.r(9, 15, 2, 2, "#9a7ae0"); d.r(19, 15, 2, 2, "#9a7ae0"); } },
+    d.r(13, 14, 4, 3, "#e01848"); d.p(13, 14, "#ff9aa0"); d.r(9, 15, 2, 2, "#9a7ae0"); d.r(19, 15, 2, 2, "#9a7ae0"); } },  // ---- 《自然カタログ》 (薬草取り)
+  meraBundle: { name: "メラメラ草の束", w: 14, h: 14, shape: "circle", buy: 6, sell: 3, draw: d => bundle(d, ["#8a2818", "#c04a28", "#f07a3a", "#ffc070"]) },
+  hieBundle: { name: "ヒエヒエ草の束", w: 14, h: 14, shape: "circle", buy: 6, sell: 3, draw: d => bundle(d, ["#245a88", "#3f88c0", "#7ac0e8", "#e0f6ff"]) },
+  swampShroom: { name: "沼キノコ", w: 13, h: 13, shape: "rect", buy: 5, sell: 2.5, draw: d => swampCap(d, 6.5, 0, 6.5, 13) },
+  flagstone: { name: "敷き石", w: 20, h: 8, shape: "rect", buy: 4, sell: 2, draw: d => {
+    d.r(0, 1, 20, 7, "#7a7a84"); d.r(1, 0, 18, 1, "#8a8a94"); d.r(0, 1, 20, 1, "#a4a4ae"); d.r(0, 7, 20, 1, "#585862");
+    d.p(6, 3, "#5a5a64"); d.p(7, 4, "#5a5a64"); d.p(7, 5, "#5a5a64"); d.p(14, 2, "#5a5a64"); d.p(13, 3, "#5a5a64");
+    d.p(3, 3, "#b4b4be"); d.p(10, 5, "#9494a0"); d.p(16, 4, "#9494a0"); d.r(16, 6, 3, 1, "#5d8a4e"); d.p(1, 6, "#5d8a4e"); } },
+  shears: { name: "剪定鋏", w: 18, h: 10, shape: "rect", buy: 14, sell: 7, tool: true, draw: d => {
+    d.r(0, 0, 6, 4, "#b8402a"); d.r(0, 6, 6, 4, "#b8402a"); d.r(0, 0, 6, 1, "#e07050"); d.r(0, 6, 6, 1, "#e07050"); d.r(1, 3, 4, 1, "#8a2818"); d.r(1, 9, 4, 1, "#8a2818");
+    d.r(6, 2, 4, 6, "#8a8f99"); d.r(6, 2, 4, 1, "#b0b5c0"); d.p(8, 5, "#3a3d44");
+    d.r(10, 3, 7, 2, "#d8dce4"); d.r(10, 5, 6, 2, "#a8aeb8"); d.p(17, 3, "#d8dce4"); d.r(10, 3, 7, 1, "#f4f6fa"); d.p(16, 6, "#a8aeb8"); } },
+  bone: { name: "何かの骨", w: 20, h: 8, shape: "rect", buy: 3, sell: 1.5, draw: d => {
+    d.r(3, 2, 14, 4, "#e8e0c8"); for (const x of [2.5, 17.5]) { d.ell(x, 2.4, 2.5, 2.4, "#e8e0c8"); d.ell(x, 5.6, 2.5, 2.4, "#e8e0c8"); }
+    d.r(3, 5, 14, 1, "#c8bea0"); d.r(4, 2, 12, 1, "#fff8e8"); d.p(1, 1, "#fff8e8"); d.p(16, 1, "#fff8e8"); d.p(11, 4, "#a89a78"); d.p(7, 3, "#d8ceb0"); } },
+  stump: { name: "切り株", w: 24, h: 18, shape: "rect", buy: 8, sell: 4, draw: d => stumpArt(d, ["#6a4220", "#8a5a30", "#5a3818", "#c89a68", "#b08050"], false) },
+  hatchet: { name: "手斧", w: 20, h: 12, shape: "rect", sell: 12, tool: true, draw: d => {
+    d.r(0, 7, 15, 3, "#a87240"); d.r(0, 7, 15, 1, "#c89058"); d.r(0, 9, 15, 1, "#7a5030");
+    d.r(13, 1, 4, 10, "#7a7a84"); d.r(16, 0, 4, 12, "#9a9aa4"); d.r(19, 1, 1, 10, "#c8c8d2"); d.r(13, 1, 4, 1, "#a4a4ae"); d.p(15, 4, "#5a5a64");
+    d.r(12, 6, 3, 5, "#c8a050"); d.p(13, 7, "#8a6a30"); d.p(13, 9, "#8a6a30"); } },
+  mill: { name: "挽き臼", w: 28, h: 28, shape: "rect", sell: 10, tool: true, draw: d => {
+    d.r(20, 0, 3, 9, "#a87240"); d.r(20, 0, 1, 9, "#c89058"); d.r(22, 1, 1, 8, "#7a5030");
+    d.r(3, 8, 22, 8, "#8a8a94"); d.r(3, 8, 22, 1, "#b4b4be"); d.r(3, 15, 22, 1, "#5a5a64"); d.r(12, 8, 4, 1, "#4a4a54");
+    d.r(1, 16, 26, 11, "#7a7a84"); d.r(1, 16, 26, 1, "#a0a0aa"); d.r(1, 25, 26, 2, "#56565f"); d.r(0, 19, 1, 3, "#7a7a84");
+    d.r(0, 21, 3, 1, "#585862"); d.p(6, 11, "#6a6a74"); d.p(17, 12, "#6a6a74"); d.p(9, 21, "#62626c"); d.p(20, 22, "#62626c"); d.p(14, 19, "#94949e");
+    d.r(0, 27, 5, 1, "#e8e2d0"); d.r(1, 26, 3, 1, "#e8e2d0"); } },
+  boneMeal: { name: "骨粉", w: 12, h: 11, shape: "rect", sell: 4, draw: d => {
+    d.ell(6, 7.5, 6, 3.5, "#d4ccb4"); d.r(3, 2, 6, 5, "#d4ccb4"); d.r(4, 0, 4, 2, "#e4dcc4"); d.r(3, 2, 6, 1, "#8a7050");
+    d.r(4, 7, 4, 1, "#fbf8ee"); d.p(3, 6, "#fbf8ee"); d.p(3, 8, "#fbf8ee"); d.p(8, 6, "#fbf8ee"); d.p(8, 8, "#fbf8ee"); d.r(2, 10, 8, 1, "#b0a888"); } },
+  refinedSalt: { name: "精製塩", w: 13, h: 9, shape: "rect", sell: 9, draw: d => {
+    d.ell(6.5, 4, 5, 3.2, "#fafafa"); d.ell(5.5, 3, 2.5, 1.6, "#ffffff"); d.p(4, 4, "#d8e0ec"); d.p(8, 3, "#d8e0ec"); d.p(9, 5, "#d8e0ec");
+    d.r(0, 5, 13, 3, "#8a5a30"); d.r(0, 5, 13, 1, "#a87240"); d.r(2, 8, 9, 1, "#6a4220"); } },
+  seaWater: { name: "海水の瓶", w: 11, h: 16, shape: "rect", sell: 14, draw: (d, w, h) => { bottle(d, w, h, "#2a8aa8", 9); d.r(3, 11, 2, 1, "#9ae0f0"); d.r(6, 12, 2, 1, "#9ae0f0"); } },
+  hotWater: { name: "お湯の瓶", w: 10, h: 15, shape: "rect", sell: 5, draw: (d, w, h) => { bottle(d, w, h, "#7ab8e0", 8, "#c04a30"); d.p(4, 10, "#ffffff"); d.p(6, 12, "#ffffff"); d.p(5, 8, "#e8f6ff"); } },
+  hotSpring: { name: "温泉水の瓶", w: 11, h: 16, shape: "rect", sell: 20, draw: (d, w, h) => { bottle(d, w, h, "#c4d488", 9, "#c04a30"); d.p(4, 11, "#f4fcd0"); d.p(7, 13, "#e0c838"); d.p(5, 14, "#e0c838"); } },
+  grownShroom: { name: "育った光るキノコ", w: 20, h: 20, shape: "rect", sell: 12, frames: 2, draw: (d, w, h, f) => {
+    d.r(1, 18, 18, 2, "#5e3e28"); d.r(9, 9, 3, 10, "#e8e0c8"); d.r(9, 9, 1, 10, "#f8f0d8"); d.r(3, 13, 2, 6, "#e8e0c8"); d.r(15, 12, 2, 7, "#e8e0c8");
+    glowCap(d, 4, 12, 4, 3, f); glowCap(d, 16, 11, 4, 3, f); glowCap(d, 10.5, 5.5, 7, 5.5, f);
+    if (f) { d.p(6, 2, "#ffffff"); d.p(18, 8, "#ffffff"); } } },
+  grownSwamp: { name: "育った沼キノコ", w: 20, h: 18, shape: "rect", sell: 7, draw: d => {
+    d.r(1, 16, 18, 2, "#4a3a2a"); d.r(2, 15, 3, 1, "#5d8a4e"); d.r(14, 15, 4, 1, "#5d8a4e");
+    swampCap(d, 4.5, 7, 4.5, 11); swampCap(d, 15.5, 6, 4.5, 12); swampCap(d, 10, 0, 6.5, 16); } },
+  herbSeed: { name: "薬草の種", w: 9, h: 7, shape: "rect", sell: 4, draw: d => seeds(d, "#8a7a3a", "#b0a050", "#6fae5a") },
+  herbSprout: { name: "薬草の苗", w: 12, h: 14, shape: "rect", sell: 7, draw: d => sprout(d, 12, 14, "#4f8a43", "#8ccc70", "#3f6e35") },
+  grownHerb: { name: "育った薬草", w: 16, h: 20, shape: "rect", sell: 11, draw: d => { bush(d, 0, 0, ["#3f6e35", "#4f8a43", "#6fae5a", "#a8e090"]); d.p(8, 1, "#ffffff"); d.p(3, 6, "#ffffff"); d.p(13, 5, "#ffffff"); } },
+  meraSeed: { name: "メラメラ草の種", w: 9, h: 7, shape: "rect", sell: 5, draw: d => seeds(d, "#9a2a18", "#d04a28", "#ffb060") },
+  meraSprout: { name: "メラメラ草の苗", w: 12, h: 14, shape: "rect", sell: 9, draw: d => sprout(d, 12, 14, "#c04a28", "#f08a40", "#6a3a20") },
+  grownMera: { name: "育ったメラメラ草", w: 20, h: 24, shape: "rect", sell: 16, tool: true, frames: 3, draw: (d, w, h, f) => {
+    // flames lick all around the plant
+    const tongues = [[3, 7], [6, 3], [10, 1], [14, 3], [17, 7], [1, 12], [18, 12], [2, 17], [17, 17]];
+    tongues.forEach(([x, y], i) => {
+      const t = (i + f) % 3, top = Math.max(0, y - 1 - t);
+      d.r(x, top + 1, 2, Math.min(3, y + 3 - top), "#d84a20"); d.r(x + (i % 2), top, 1, 2, "#f88a30"); d.p(x + 1 - (i % 2), Math.max(0, top - 1 + (t === 2 ? 1 : 0)), "#ffd060");
+    });
+    bush(d, 2, 4, ["#6a2a18", "#b03a20", "#d85a2a", "#ffa050"]);
+    for (const [x, y] of [[6, 9], [13, 8], [10, 13]]) d.p(x, y, ["#ffe070", "#ffb040", "#fff0a0"][(x + f) % 3]);
+    d.p([4, 15, 9][f], [2, 1, 0][f], "#ffd060"); } },
+  hotLiquid: { name: "辛い液体", w: 11, h: 16, shape: "rect", sell: 30, draw: (d, w, h) => { bottle(d, w, h, "#e0502a", 9); d.p(4, 11, "#ffb060"); d.p(6, 13, "#ffb060"); d.p(5, 9, "#ffd8a0"); } },
+  warmPotion: { name: "保温薬", w: 12, h: 17, shape: "rect", sell: 55, draw: (d, w, h) => {
+    bottle(d, w, h, "#f08a2a", 10, "#c89058"); d.p(6, 10, "#fff0a0"); d.r(5, 11, 2, 1, "#fff0a0"); d.r(5, 12, 3, 1, "#ffd060"); d.r(5, 13, 2, 1, "#ffd060"); } },
+  hieSeed: { name: "ヒエヒエ草の種", w: 9, h: 7, shape: "rect", sell: 5, draw: d => seeds(d, "#2a6898", "#4a98d0", "#d8f4ff") },
+  hieSprout: { name: "ヒエヒエ草の苗", w: 12, h: 14, shape: "rect", sell: 9, draw: d => sprout(d, 12, 14, "#3a80b8", "#a0d8f4", "#2a5a80") },
+  grownHie: { name: "育ったヒエヒエ草", w: 20, h: 24, shape: "rect", sell: 16, frames: 3, draw: (d, w, h, f) => {
+    // a cold haze drifts around the plant and frost glitters on it
+    const haze = [[[0, 9, 3], [17, 6, 3], [1, 16, 4], [15, 15, 5]], [[1, 10, 3], [16, 7, 4], [0, 15, 4], [16, 16, 4]], [[0, 8, 4], [17, 8, 3], [2, 17, 3], [15, 14, 5]]][f];
+    for (const [x, y, len] of haze) { d.r(x, y, len, 1, "#c8ecfc"); d.p(x + 1, y - 1, "#e8faff"); }
+    bush(d, 2, 4, ["#1e4a70", "#2f6a98", "#4a98d0", "#bfe8ff"]);
+    const spots = [[[3, 5], [11, 2], [17, 3], [6, 14], [14, 17]], [[5, 3], [15, 5], [9, 9], [12, 14], [2, 3]], [[9, 1], [3, 10], [14, 8], [17, 1], [8, 17]]][f];
+    for (const [x, y] of spots) { d.p(x, y, "#ffffff"); d.p(x - 1, y, "#d8f4ff"); d.p(x + 1, y, "#d8f4ff"); d.p(x, y - 1, "#d8f4ff"); d.p(x, y + 1, "#d8f4ff"); }
+    d.r(3, 23, 14, 1, "#e8faff"); } },
+  ice: { name: "氷", w: 12, h: 11, shape: "rect", sell: 3, draw: d => {
+    d.r(0, 3, 9, 8, "#a0dcf8"); d.r(9, 2, 3, 8, "#78bce0"); d.r(1, 1, 10, 2, "#d8f4ff"); d.r(2, 0, 10, 1, "#eafaff"); d.p(11, 1, "#a8d8f0");
+    d.r(1, 4, 1, 4, "#ffffff"); d.p(2, 4, "#ffffff"); d.p(5, 7, "#78bce0"); d.p(6, 8, "#78bce0"); d.p(4, 9, "#c8ecfc"); } },
+  bitterLiquid: { name: "渋い液体", w: 11, h: 16, shape: "rect", sell: 26, draw: (d, w, h) => { bottle(d, w, h, "#76763a", 9); d.p(4, 12, "#a8a860"); d.p(6, 10, "#a8a860"); } },
+  coolPotion: { name: "保冷薬", w: 12, h: 17, shape: "rect", sell: 55, draw: (d, w, h) => {
+    bottle(d, w, h, "#3ab8e0", 10, "#c89058"); d.p(6, 11, "#ffffff"); d.p(5, 12, "#ffffff"); d.p(7, 12, "#ffffff"); d.p(6, 13, "#ffffff"); d.p(6, 12, "#d8f4ff"); } },
+  secretMedicine: { name: "秘薬", w: 13, h: 20, shape: "rect", sell: 250, draw: (d, w, h) => {
+    bottle(d, w, h, "#a070e0", 12, "#e8b84a"); d.r(4, 2, 5, 1, "#e8b84a");
+    d.p(4, 13, "#f08a2a"); d.p(5, 14, "#f08a2a"); d.p(4, 15, "#f8b060"); d.p(8, 13, "#3ab8e0"); d.p(7, 15, "#3ab8e0"); d.p(8, 16, "#8ad8f0"); d.p(6, 11, "#ffffff"); d.p(6, 17, "#f0e0ff"); } },
+  treeSeed: { name: "樹木の種", w: 8, h: 10, shape: "rect", sell: 7, draw: d => {
+    d.ell(4, 6.5, 3.4, 3.6, "#a87240"); d.ell(3.5, 6, 1.6, 2, "#c89058"); d.p(4, 9, "#7a5030");
+    d.ell(4, 3, 4, 2.4, "#6a4220"); d.r(0, 3, 8, 1, "#5a3818"); d.p(2, 2, "#8a5a30"); d.p(5, 2, "#8a5a30"); d.p(4, 0, "#5a3818"); } },
+  treeSprout: { name: "樹木の苗", w: 12, h: 16, shape: "rect", sell: 11, draw: d => sprout(d, 12, 16, "#3f7a3a", "#7cc066", "#6a4220") },
+  youngTree: { name: "未熟な樹木", w: 36, h: 40, shape: "rect", sell: 16, draw: (d, w, h) => tree(d, w, h, TREE_PAL, 0) },
+  grownTree: { name: "育った樹木", w: 44, h: 50, shape: "rect", sell: 22, draw: (d, w, h) => tree(d, w, h, TREE_PAL, 1) },
+  fruitSeed: { name: "果樹の種", w: 8, h: 9, shape: "rect", sell: 12, draw: d => {
+    d.ell(4, 5.2, 3.5, 3.8, "#c0603e"); d.ell(3.4, 4.6, 2, 2.2, "#e08a62"); d.p(3, 3, "#ffd0b8"); d.p(4, 1, "#8a4a30"); d.p(4, 0, "#6fae5a"); d.p(5, 0, "#6fae5a"); } },
+  fruitSprout: { name: "果樹の苗", w: 12, h: 16, shape: "rect", sell: 17, draw: d => { sprout(d, 12, 16, "#4f8a43", "#9ad87a", "#6a4220"); d.p(6, 0, "#ffb0c8"); d.p(2, 3, "#ffd0e0"); } },
+  youngFruit: { name: "未熟な果樹", w: 36, h: 40, shape: "rect", sell: 24, draw: (d, w, h) => tree(d, w, h, FRUIT_PAL, 0, [[0.3, 0.4], [0.62, 0.3], [0.7, 0.5]], ["#9ac050", "#c8e070"]) },
+  grownFruit: { name: "育った果樹", w: 44, h: 50, shape: "rect", sell: 32, draw: (d, w, h) => tree(d, w, h, FRUIT_PAL, 1,
+    [[0.22, 0.38], [0.36, 0.22], [0.5, 0.42], [0.64, 0.24], [0.78, 0.4], [0.42, 0.55], [0.66, 0.56], [0.28, 0.54]], ["#f0a040", "#fff0a0"]) },
+  pikara: { name: "ピカラの実", w: 10, h: 11, shape: "rect", sell: 9, draw: d => {
+    d.ell(5, 6.6, 4.8, 4.3, "#f0a040"); d.ell(4.5, 6.2, 3.4, 3, "#f8c860"); d.ell(3.5, 5, 1.5, 1.2, "#fff4c0");
+    d.r(5, 0, 1, 3, "#6a4220"); d.ell(7.5, 1.5, 2, 1.1, "#6fae5a"); d.p(7, 9, "#d07a28"); } },
+  worldSeed: { name: "世界樹の種", w: 10, h: 12, shape: "rect", sell: 300, draw: d => {
+    d.ell(5, 7.5, 4.5, 4.5, "#8ac860"); d.ell(5, 5, 2.6, 3, "#8ac860"); d.ell(5, 7.4, 3.2, 3.3, "#d8f4a0"); d.ell(5, 5.4, 1.4, 2, "#d8f4a0");
+    d.ell(4, 7, 1.4, 1.6, "#ffffff"); d.p(6, 9, "#fff4a0"); d.r(5, 0, 1, 2, "#b8a070"); d.p(6, 0, "#f0e070"); d.p(3, 10, "#5aa848"); } },
+  worldSprout: { name: "世界樹の苗", w: 14, h: 18, shape: "rect", sell: 320, draw: d => { sprout(d, 14, 18, "#5aa848", "#d8f080", "#b8a070"); d.p(7, 0, "#fffbd8"); d.p(2, 4, "#fff4a0"); d.p(12, 3, "#fff4a0"); } },
+  youngWorld: { name: "未熟な世界樹", w: 44, h: 50, shape: "rect", sell: 360, draw: (d, w, h) => tree(d, w, h, WORLD_PAL, 0, [[0.3, 0.3], [0.6, 0.22], [0.72, 0.42], [0.42, 0.45]], ["#fff4a0", "#ffffff"]) },
+  grownWorld: { name: "育った世界樹", w: 60, h: 66, shape: "rect", sell: 420, frames: 2, draw: (d, w, h, f) => tree(d, w, h, WORLD_PAL, 1,
+    (f ? [[0.2, 0.36], [0.4, 0.16], [0.58, 0.34], [0.76, 0.22], [0.82, 0.44], [0.32, 0.52], [0.62, 0.54], [0.5, 0.26]] : [[0.26, 0.24], [0.46, 0.4], [0.66, 0.16], [0.18, 0.46], [0.74, 0.5], [0.52, 0.56], [0.36, 0.34], [0.86, 0.32]]), ["#fff4a0", "#ffffff"]) },
+  evergreenWood: { name: "常緑の薪", w: 28, h: 9, shape: "rect", sell: 45, draw: d => {
+    d.r(0, 1, 26, 7, "#4a6a38"); d.r(0, 1, 26, 1, "#6a8a4a"); d.r(0, 7, 26, 1, "#30481f");
+    d.r(2, 3, 6, 1, "#30481f"); d.r(12, 4, 7, 1, "#30481f"); d.r(7, 5, 5, 1, "#3a5628"); d.r(20, 2, 4, 1, "#3a5628");
+    d.ell(26.5, 4.5, 1.6, 4, "#e0d498"); d.p(26, 4, "#7a9a4a"); d.p(26, 2, "#c8c080");
+    d.r(8, 0, 1, 1, "#7cc066"); d.p(9, 0, "#a8e090"); d.r(18, 0, 2, 1, "#7cc066"); d.p(14, 2, "#fff4a0"); } },
+  evergreenStump: { name: "常緑の切り株", w: 24, h: 18, shape: "rect", sell: 120, draw: d => {
+    stumpArt(d, ["#4a6a38", "#6a8a4a", "#30481f", "#e0d498", "#c0b070"], true); } },
+  holyFire: { name: "聖火", w: 24, h: 18, shape: "rect", sell: 120, tool: true, frames: 3, draw: (d, w, h, f) => {
+    d.r(1, 14, 22, 3, "#4a6a38"); d.r(1, 14, 22, 1, "#6a8a4a"); d.r(3, 12, 18, 2, "#30481f"); d.r(0, 16, 24, 2, "#24381a");
+    d.ell(22.5, 15.5, 1.5, 1.5, "#e0d498"); d.ell(1.5, 15.5, 1.5, 1.5, "#e0d498");
+    const sway = [0, 1, -1][f];
+    d.ell(12 + sway * 0.5, 9, 6.5, 7 - (f === 1 ? 1 : 0), "#f0c040"); d.ell(12 + sway, 10, 4.5, 4.5, "#fff0a0"); d.ell(12, 11, 2.2, 3, "#ffffff");
+    d.r(11 + sway, 1 + f, 2, 3, "#f0c040"); d.p(12 + sway, f, "#fff0a0");
+    d.p([5, 18, 7][f], [4, 3, 2][f], "#a0f0ff"); d.p([19, 4, 17][f], [2, 5, 6][f], "#ffffff"); d.p([8, 15, 10][f], [1, 2, 3][f], "#fff4a0"); } },
 };
 for (const [id, t] of Object.entries(THINGS)) {
   t.id = id;
@@ -467,29 +658,49 @@ for (const [id, t] of Object.entries(THINGS)) {
 // animation speed (frames per second)
 Object.assign(THINGS.campfire, { fps: 4.5 }); Object.assign(THINGS.furnace, { fps: 3.5 });
 Object.assign(THINGS.mushroom, { fps: 1.1 }); Object.assign(THINGS.crystalBall, { fps: 0.8 });
+Object.assign(THINGS.grownShroom, { fps: 1.1 }); Object.assign(THINGS.grownMera, { fps: 4 }); Object.assign(THINGS.grownHie, { fps: 2.2 });
+Object.assign(THINGS.holyFire, { fps: 4.5 }); Object.assign(THINGS.grownWorld, { fps: 0.7 });
 // tags: ember (sets fuel alight), fuel (burns), heavy (breaks vials when it lands hard), vial (spills liquid)
-for (const id of ["campfire"]) THINGS[id].ember = true;       // sets fuel alight (burning)
-for (const id of ["furnace"]) THINGS[id].hot = true;          // boils liquid away (evaporation)
-for (const id of ["campfire"]) THINGS[id].drinker = true;     // changes when it touches liquid (absorbing)
+for (const id of ["campfire", "grownMera", "holyFire"]) THINGS[id].ember = true;   // 【火種】 sets fuel alight (burning)
+for (const id of ["furnace", "holyFire"]) THINGS[id].hot = true;                    // 【高温】 boils liquid away (evaporation)
+for (const id of ["grownHie"]) THINGS[id].frigid = true;                            // 【極低温】 freezes liquid into ice (freezing)
+for (const id of ["campfire", "swampShroom", "herbSeed", "herbSprout", "hieSeed", "hieSprout", "treeSeed", "treeSprout", "youngTree",
+  "fruitSeed", "fruitSprout", "youngFruit", "worldSeed", "worldSprout", "youngWorld"]) THINGS[id].drinker = true; // 【水飲み】 changes when it touches liquid (absorbing)
 // genres: which shop's world a thing belongs to (one thing can be in several; the encyclopedia has a page per genre)
 const GENRES = { tool: "道具屋", nature: "薬草取り" };
-for (const t of Object.values(THINGS)) t.genres = ["tool"];
-for (const id of ["water", "wood", "herb", "mushroom", "tonic"]) THINGS[id].genres.push("nature");
-for (const id of ["herb", "mushroom", "sulfur"]) THINGS[id].fuel = true;
-for (const id of ["salt", "ironScrap", "lead", "hammer", "brick", "ingot", "furnace"]) THINGS[id].heavy = true;
-Object.entries({ water: "#9fd4f4", mercury: "#a8acb8", tonic: "#a8d870", healing: "#e04a5a", mana: "#4a6ad8", elixir: "#f0c030", elixirOfLife: "#ff8ad0" })
+// the 《自然カタログ》 page in the order it is listed (things also on the 道具屋 page come last)
+const NATURE_ORDER = ["wood", "water", "herb", "meraBundle", "hieBundle", "mushroom", "swampShroom", "flagstone", "shears", "bone", "stump",
+  "hatchet", "mill", "boneMeal", "refinedSalt", "seaWater", "hotWater", "hotSpring", "grownShroom", "grownSwamp",
+  "herbSeed", "herbSprout", "grownHerb", "meraSeed", "meraSprout", "grownMera", "hotLiquid", "warmPotion",
+  "hieSeed", "hieSprout", "grownHie", "ice", "bitterLiquid", "coolPotion", "secretMedicine",
+  "treeSeed", "treeSprout", "youngTree", "grownTree", "fruitSeed", "fruitSprout", "youngFruit", "grownFruit", "pikara",
+  "worldSeed", "worldSprout", "youngWorld", "grownWorld", "evergreenWood", "evergreenStump", "holyFire",
+  "campfire", "tonic", "healing", "mana", "elixir"];
+const PAGE_ORDER = { nature: NATURE_ORDER };
+for (const t of Object.values(THINGS)) t.genres = [];
+for (const id of NATURE_ORDER) THINGS[id].genres.push("nature");
+// everything from before the 《自然カタログ》 belongs to the 道具屋; of the new things only お湯の瓶 and 温泉水の瓶 do too
+{ const ids = Object.keys(THINGS), natureStart = ids.indexOf("meraBundle");
+  ids.forEach((id, i) => { if (i < natureStart || id === "hotWater" || id === "hotSpring") THINGS[id].genres.unshift("tool"); }); }
+for (const id of ["herb", "mushroom", "sulfur", "meraBundle", "hieBundle", "swampShroom", "herbSprout", "grownHerb", "hieSprout",
+  "treeSprout", "youngTree", "fruitSprout", "youngFruit"]) THINGS[id].fuel = true;
+for (const id of ["salt", "ironScrap", "lead", "hammer", "brick", "ingot", "furnace", "flagstone", "mill"]) THINGS[id].heavy = true;
+Object.entries({ water: "#9fd4f4", mercury: "#a8acb8", tonic: "#a8d870", healing: "#e04a5a", mana: "#4a6ad8", elixir: "#f0c030", elixirOfLife: "#ff8ad0",
+  seaWater: "#40a8c8", hotWater: "#b0dcf8", hotSpring: "#d8e8a0", hotLiquid: "#f06a3a", warmPotion: "#ffa040", bitterLiquid: "#9a9a50", coolPotion: "#70e0f8", secretMedicine: "#c89af0" })
   .forEach(([id, col]) => { THINGS[id].vial = true; THINGS[id].liquid = col; });
 // shiny things twinkle now and then
-for (const id of ["glass", "mirror", "silver", "gold", "crown", "royalCrown", "philosopherStone", "crystalBall", "elixir", "elixirOfLife"]) THINGS[id].shine = true;
+for (const id of ["glass", "mirror", "silver", "gold", "crown", "royalCrown", "philosopherStone", "crystalBall", "elixir", "elixirOfLife",
+  "ice", "pikara", "secretMedicine", "worldSeed", "worldSprout"]) THINGS[id].shine = true;
 // catalog list with how often each appears
 const CATALOG_POOL = { sand: 10, water: 10, wood: 10, clay: 9, herb: 10, salt: 7, ironScrap: 8, flint: 5, mushroom: 6, sulfur: 6, lead: 7, mercury: 6, hammer: 3 };
-// 提携: every shop keeps its own catalog. For now every shop draws from the standard list.
+const NATURE_POOL = { wood: 9, water: 10, herb: 9, meraBundle: 7, hieBundle: 7, mushroom: 6, swampShroom: 7, flagstone: 8, shears: 4, bone: 7, stump: 6 };
+// 提携: every shop keeps its own catalog. Shops whose catalog is not made yet draw from the standard list.
 const SHOPS = [
   { id: "tool", name: "道具屋", cat: "標準" }, { id: "nature", name: "薬草取り", cat: "自然" }, { id: "mine", name: "採掘家", cat: "鉱山" },
   { id: "machine", name: "金物技師", cat: "機械" }, { id: "magic", name: "魔術書店", cat: "魔法" }, { id: "cook", name: "料理人", cat: "調理" },
   { id: "summon", name: "召喚士", cat: "使役" },
 ];
-const SHOP_POOL = Object.fromEntries(SHOPS.map(sh => [sh.id, CATALOG_POOL]));
+const SHOP_POOL = Object.fromEntries(SHOPS.map(sh => [sh.id, CATALOG_POOL])); SHOP_POOL.nature = NATURE_POOL;
 
 // ---------------------------------------------------------------- reactions
 // fuse: A + B -> C (both replaced by one).  improve: target touching tool -> target becomes result, tool stays.
@@ -498,6 +709,11 @@ const FUSE = [
   ["sulfur", "mercury", "cinnabar"], ["cinnabar", "salt", "tria"], ["brick", "brick", "furnace"],
   ["redPowder", "elixir", "philosopherStone"], ["glass", "mercury", "mirror"], ["glass", "mana", "crystalBall"],
   ["crown", "crystalBall", "royalCrown"], ["wood", "ingot", "hammer"],
+  // 《自然》
+  ["wood", "flagstone", "hatchet"], ["flagstone", "flagstone", "mill"], ["water", "refinedSalt", "seaWater"], ["hotWater", "herb", "healing"],
+  ["hotWater", "sulfur", "hotSpring"], ["mushroom", "boneMeal", "grownShroom"], ["hotSpring", "meraBundle", "hotLiquid"],
+  ["seaWater", "hieBundle", "bitterLiquid"], ["bitterLiquid", "ice", "coolPotion"], ["warmPotion", "coolPotion", "secretMedicine"],
+  ["treeSeed", "boneMeal", "fruitSeed"], ["treeSprout", "boneMeal", "fruitSprout"], ["fruitSeed", "secretMedicine", "worldSeed"], ["fruitSprout", "secretMedicine", "worldSprout"],
 ];
 const IMPROVE = [ // [target, tool, result]
   ["wood", "flint", "campfire"], ["wood", "campfire", "campfire"], ["sand", "campfire", "glass"], ["clay", "campfire", "brick"], ["ironScrap", "campfire", "ingot"],
@@ -505,22 +721,43 @@ const IMPROVE = [ // [target, tool, result]
   // the furnace is a fire kept safely inside: it does what the campfire does, except setting wood alight
   ["sand", "furnace", "glass"], ["clay", "furnace", "brick"], ["ironScrap", "furnace", "ingot"], ["tonic", "furnace", "healing"], ["ingot", "philosopherStone", "silver"],
   ["lead", "philosopherStone", "gold"], ["elixir", "philosopherStone", "elixirOfLife"], ["ingot", "hammer", "sword"], ["gold", "hammer", "crown"],
+  // 《自然》
+  ["bone", "mill", "boneMeal"], ["salt", "mill", "refinedSalt"], ["water", "campfire", "hotWater"], ["water", "furnace", "hotWater"],
+  ["herb", "mill", "herbSeed"], ["meraBundle", "mill", "meraSeed"], ["meraSeed", "furnace", "meraSprout"], ["meraSprout", "campfire", "grownMera"],
+  ["wood", "grownMera", "campfire"], ["hotLiquid", "campfire", "warmPotion"], ["hotLiquid", "furnace", "warmPotion"], ["hieBundle", "mill", "hieSeed"],
+  ["stump", "mill", "treeSeed"], ["pikara", "mill", "fruitSeed"], ["evergreenStump", "mill", "worldSeed"],
+  ["evergreenWood", "flint", "holyFire"], ["evergreenWood", "campfire", "holyFire"], ["evergreenWood", "grownMera", "holyFire"], ["evergreenWood", "holyFire", "holyFire"],
+  ["wood", "holyFire", "campfire"],
 ];
 const pairKey = (a, b) => a < b ? `${a}|${b}` : `${b}|${a}`;
 const REACTIONS = new Map(), RECIPES = [];
 for (const [a, b, c] of FUSE) { const r = { key: "f:" + pairKey(a, b), kind: "fuse", a, b, out: c }; REACTIONS.set(pairKey(a, b), r); RECIPES.push(r); }
 for (const [t, tool, out] of IMPROVE) { const r = { key: `i:${t}|${tool}`, kind: "improve", target: t, tool, out }; REACTIONS.set(pairKey(t, tool), r); RECIPES.push(r); }
 // 分解: A touching B -> A is replaced by C and D, B stays. Nothing left afterwards may react with anything else left.
-const SPLIT = []; // [A, B, C, D] (none yet)
+const SPLIT = [ // [A, B, C, D]
+  ["grownShroom", "shears", "mushroom", "mushroom"], ["grownSwamp", "shears", "swampShroom", "swampShroom"], ["grownHerb", "shears", "herbSprout", "herb"],
+  ["grownMera", "shears", "meraSprout", "meraBundle"], ["grownHie", "shears", "hieSprout", "hieBundle"],
+  ["grownTree", "hatchet", "youngTree", "wood"], ["youngTree", "shears", "stump", "wood"],
+  ["grownFruit", "hatchet", "youngFruit", "pikara"], ["youngFruit", "shears", "stump", "pikara"],
+  ["grownWorld", "hatchet", "youngWorld", "evergreenWood"], ["youngWorld", "shears", "evergreenStump", "evergreenWood"],
+];
 for (const [t, tool, c, d] of SPLIT) { const r = { key: `s:${t}|${tool}`, kind: "split", target: t, tool, outs: [c, d] }; REACTIONS.set(pairKey(t, tool), r); RECIPES.push(r); }
 // 吸水: a 【水飲み】 thing touching the liquid turns into another thing; each change uses up one vial's worth of liquid
-const ABSORB = [["campfire", "wood"]];
+const ABSORB = [["campfire", "wood"], ["swampShroom", "grownSwamp"],
+  ["herbSeed", "herbSprout"], ["herbSprout", "grownHerb"], ["hieSeed", "hieSprout"], ["hieSprout", "grownHie"],
+  ["treeSeed", "treeSprout"], ["treeSprout", "youngTree"], ["youngTree", "grownTree"],
+  ["fruitSeed", "fruitSprout"], ["fruitSprout", "youngFruit"], ["youngFruit", "grownFruit"],
+  ["worldSeed", "worldSprout"], ["worldSprout", "youngWorld"], ["youngWorld", "grownWorld"]];
 const ABSORB_OF = {};
 for (const [t, out] of ABSORB) { const r = { key: `a:${t}`, kind: "absorb", target: t, out }; ABSORB_OF[t] = r; RECIPES.push(r); }
+// 凍結: while a 【極低温】 thing is under the surface (and nothing 【高温】 is), the liquid turns into ice one vial's worth at a time
+const FREEZE = [["grownHie", "ice"]], FREEZE_OF = {};
+for (const [t, out] of FREEZE) { const r = { key: `z:${t}`, kind: "freeze", target: t, out }; FREEZE_OF[t] = r; RECIPES.push(r); }
 const nm = id => THINGS[id].name;
 const recipeText = r => r.kind === "fuse" ? `${nm(r.a)} ＋ ${nm(r.b)} → ${nm(r.out)}`
   : r.kind === "improve" ? `${nm(r.target)} を ${nm(r.tool)} で改良 → ${nm(r.out)}`
-  : r.kind === "split" ? `${nm(r.target)} が ${nm(r.tool)} に触れて分解 → ${nm(r.outs[0])} ＋ ${nm(r.outs[1])}`
+  : r.kind === "split" ? `${nm(r.target)} を ${nm(r.tool)} で分解 → ${nm(r.outs[0])} と ${nm(r.outs[1])}`
+  : r.kind === "freeze" ? `${nm(r.target)} で凍結 → ${nm(r.out)}`
   : `${nm(r.target)} が吸水 → ${nm(r.out)}`;
 const recipeMakes = (r, id) => r.out === id || (r.outs || []).includes(id);
 const recipeUses = (r, id) => r.a === id || r.b === id || r.target === id || r.tool === id;
@@ -667,7 +904,7 @@ function spawn(type, x, y, angle = 0, vel = null, plus = 0) {
   const opts = { friction: 0.6, frictionStatic: 0.8, frictionAir: 0.01, restitution: 0.05, density: 0.002, label: "item" };
   const b = t.shape === "circle" ? Bodies.circle(x, y, t.w / 2, opts)
     : Bodies.rectangle(x, y, t.w, t.h, { ...opts, chamfer: { radius: Math.min(2, t.h / 3) } });
-  b.thing = type; b.born = performance.now(); b.plus = plus;
+  b.thing = type; b.born = performance.now(); b.plus = plus; b.gs = 1; b.calm = 0;
   Body.setAngle(b, angle);
   if (vel) Body.setVelocity(b, vel);
   Composite.add(world, b); items.add(b);
@@ -676,6 +913,36 @@ function spawn(type, x, y, angle = 0, vel = null, plus = 0) {
   return b;
 }
 function removeItem(b) { Composite.remove(world, b); items.delete(b); }
+// A thing made by a reaction rests a moment before it can react again (so chains are seen one step at a time).
+const CALM_MS = 250, GROW_S = 0.35;
+// One thing turns into another where it stands (改良・吸水). Something bigger grows there over a moment, its bottom staying put.
+function transform(old, type, plus, upright = false) {
+  const t = THINGS[type], ot = THINGS[old.thing], bottom = old.bounds.max.y;
+  removeItem(old);
+  const n = spawn(type, old.position.x, old.position.y, upright ? 0 : old.angle, old.velocity, plus);
+  const s0 = Math.max(0.25, Math.max(ot.w / t.w, ot.h / t.h));
+  if (s0 < 0.95) { Body.scale(n, s0, s0); n.gs = s0; n.grow = { s0, t: 0 }; }
+  Body.setPosition(n, { x: n.position.x, y: n.position.y + bottom - n.bounds.max.y });
+  n.calm = performance.now() + (n.grow ? GROW_S * 1000 : 0) + CALM_MS;
+  return n;
+}
+function updateGrowth(dt) {
+  for (const b of items) {
+    if (!b.grow) continue;
+    b.grow.t += dt;
+    const k = Math.min(1, b.grow.t / GROW_S), e = 1 - (1 - k) * (1 - k), sc = b.grow.s0 + (1 - b.grow.s0) * e;
+    const bottom = b.bounds.max.y;
+    Body.scale(b, sc / b.gs, sc / b.gs); b.gs = sc;
+    Body.setPosition(b, { x: b.position.x, y: b.position.y + bottom - b.bounds.max.y });
+    if (k >= 1) delete b.grow;
+  }
+}
+// Is this area of the lab free of things?
+function freeAt(x, y, w, h) {
+  if (x - w / 2 < 1 || x + w / 2 > LAB_W - 1 || y - h / 2 < 12 || y + h / 2 > FLOOR_TOP) return false;
+  return Query.region([...items], { min: { x: x - w / 2, y: y - h / 2 }, max: { x: x + w / 2, y: y + h / 2 } }).length === 0;
+}
+const clampX = (x, w) => Math.max(w / 2 + 1, Math.min(LAB_W - w / 2 - 1, x));
 const valueOf = b => THINGS[b.thing].sellC * plusMul(b.plus);
 function noteThing(type, plus = 0) {
   if (!book.things.has(type)) { book.things.add(type); saveBook(); }
@@ -703,37 +970,44 @@ Events.on(engine, "collisionStart", e => {
 });
 Events.on(engine, "collisionActive", e => { for (const p of e.pairs) touching.push(p); });
 function resolveReactions() {
-  const used = new Set();
+  const used = new Set(), now = performance.now();
   // spills: a vial hit hard by something heavy (and vials right next to it)
   for (const v of impacts) if (items.has(v)) spill(v, used);
   impacts = [];
   for (const p of touching) {
     const a = p.bodyA.parent, b = p.bodyB.parent;
     if (a.label !== "item" || b.label !== "item" || used.has(a) || used.has(b) || !items.has(a) || !items.has(b)) continue;
-    // burning: fuel touching an ember (and fuel right next to it)
-    if (THINGS[a.thing].ember && THINGS[b.thing].fuel) { burn(b, used); continue; }
-    if (THINGS[b.thing].ember && THINGS[a.thing].fuel) { burn(a, used); continue; }
     const r = REACTIONS.get(pairKey(a.thing, b.thing));
-    if (!r) continue;
+    // burning: fuel touching an ember (and fuel right next to it), unless the two have a recipe of their own
+    if (!r) {
+      if (THINGS[a.thing].ember && THINGS[b.thing].fuel) burn(b, used);
+      else if (THINGS[b.thing].ember && THINGS[a.thing].fuel) burn(a, used);
+      continue;
+    }
+    if (a.calm > now || b.calm > now) continue;
     if (r.kind === "fuse") {
       const x = (a.position.x + b.position.x) / 2, y = (a.position.y + b.position.y) / 2;
       const v = { x: (a.velocity.x + b.velocity.x) / 2, y: (a.velocity.y + b.velocity.y) / 2 };
       used.add(a); used.add(b); removeItem(a); removeItem(b);
-      const n = spawn(r.out, x, y, 0, v, (a.plus || 0) + (b.plus || 0)); used.add(n);
+      const n = spawn(r.out, x, y, 0, v, (a.plus || 0) + (b.plus || 0)); used.add(n); n.calm = now + CALM_MS;
       burst(x, y, "#c8a8ff"); announce(r, "fuse");
     } else if (r.kind === "improve") {
       const target = a.thing === r.target && b.thing === r.tool ? a : b, tool = target === a ? b : a;
       used.add(target);
       const { x, y } = target.position;
-      removeItem(target);
-      const n = spawn(r.out, x, y, target.angle, target.velocity, (target.plus || 0) + (tool.plus || 0)); used.add(n);
+      used.add(transform(target, r.out, (target.plus || 0) + (tool.plus || 0)));
       burst(x, y, "#ffd870"); announce(r, "improve");
     } else if (r.kind === "split") {
       const target = a.thing === r.target && b.thing === r.tool ? a : b, tool = target === a ? b : a;
       used.add(target);
-      const { x, y } = target.position, pl = (target.plus || 0) + (tool.plus || 0);
+      const { x, y } = target.position, pl = (target.plus || 0) + (tool.plus || 0), bottom = target.bounds.max.y;
       removeItem(target);
-      for (const [k, out] of r.outs.entries()) used.add(spawn(out, x + (k ? 3 : -3), y - k * 2, target.angle, target.velocity, pl));
+      // the two pieces stand side by side, upright, on the spot where it stood
+      const [c, e] = r.outs.map(id => THINGS[id]), left = x - (c.w + e.w + 1) / 2;
+      [[c, left + c.w / 2], [e, left + c.w + 1 + e.w / 2]].forEach(([t, cx]) => {
+        const n = spawn(t.id, clampX(cx, t.w), Math.min(bottom, FLOOR_TOP) - t.h / 2 - 0.5, 0, null, pl);
+        n.calm = now + CALM_MS; used.add(n);
+      });
       burst(x, y, "#a8e8c8"); announce(r, "split");
     }
   }
@@ -776,30 +1050,46 @@ const liquidHeight = () => Math.min(S.liquid.n * LIQ_STEP, FLOOR_TOP - 40);
 let drainFrom = 0, drainT = 1, evapT = 0;
 const steam = []; // { x, y } rising puffs
 // While part of an ember is under the surface, the liquid boils away one vial's worth at a time.
-let absorbT = 0;
-const lowestUnder = (surface, ok) => { let low = null; for (const b of items) if (ok(THINGS[b.thing]) && b.bounds.max.y > surface && (!low || b.position.y > low.position.y)) low = b; return low; };
+let absorbT = 0, freezeT = 0;
+const lowestUnder = (surface, ok) => { let low = null; for (const b of items) if (ok(THINGS[b.thing], b) && b.bounds.max.y > surface && (!low || b.position.y > low.position.y)) low = b; return low; };
 function updateLiquid(dt) {
   if (drainT < 1) drainT += dt / 0.45;
-  evapT -= dt; absorbT -= dt;
+  evapT -= dt; absorbT -= dt; freezeT -= dt;
   // 吸水: the lowest 【水飲み】 thing reaching into the liquid changes, using up one vial's worth
   if (S.liquid.n && absorbT <= 0) {
-    const d = lowestUnder(FLOOR_TOP - liquidHeight(), t => t.drinker);
+    const now = performance.now(), d = lowestUnder(FLOOR_TOP - liquidHeight(), (t, b) => t.drinker && b.calm <= now);
     if (d) {
       const r = ABSORB_OF[d.thing], { x, y } = d.position;
-      removeItem(d); spawn(r.out, x, y, d.angle, d.velocity, d.plus || 0);
+      transform(d, r.out, d.plus || 0, true); // plants grow upright
       S.liquid.n--; absorbT = 0.12;
       burst(x, y, "#9fd4f4"); announce(r, "absorb");
       gainMana("plant", 1, x, y);
     }
   }
-  // 蒸発: while part of a 【高温】 thing is under the surface, the liquid boils away one vial's worth at a time
-  if (!S.liquid.n || evapT > 0) return;
+  // 蒸発 / 凍結: something 【高温】 under the surface boils the liquid away, something 【極低温】 freezes it into ice.
+  // With both under the surface (水温均衡) neither happens.
+  if (!S.liquid.n) return;
   const surface = FLOOR_TOP - liquidHeight();
-  const lowest = lowestUnder(surface, t => t.hot);
-  if (!lowest) return;
-  S.liquid.n--; evapT = 0.14;
-  steam.push({ x: lowest.position.x, y: Math.min(lowest.position.y, surface), t: 0 });
-  sfx.hiss();
+  const hot = lowestUnder(surface, t => t.hot), cold = lowestUnder(surface, t => t.frigid);
+  if (hot && cold) return;
+  if (hot && evapT <= 0) {
+    S.liquid.n--; evapT = 0.14;
+    steam.push({ x: hot.position.x, y: Math.min(hot.position.y, surface), t: 0 });
+    sfx.hiss();
+  } else if (cold && freezeT <= 0) {
+    S.liquid.n--; freezeT = 0.3;
+    const p = iceSpot(cold), ice = spawn("ice", p.x, p.y);
+    ice.calm = performance.now() + CALM_MS;
+    burst(p.x, p.y, "#d8f4ff"); announce(FREEZE_OF[cold.thing], "freeze");
+  }
+}
+// ice appears next to the freezing thing: above it, or beside it, wherever there is room
+function iceSpot(b) {
+  const { w, h } = THINGS.ice, bb = b.bounds, x = b.position.x;
+  const spots = [[x, bb.min.y - h / 2 - 1], [bb.min.x - w / 2 - 1, bb.max.y - h / 2], [bb.max.x + w / 2 + 1, bb.max.y - h / 2],
+    [x - w, bb.min.y - h / 2 - 1], [x + w, bb.min.y - h / 2 - 1]];
+  for (const [sx, sy] of spots) if (freeAt(sx, sy, w, h)) return { x: sx, y: sy };
+  return { x: clampX(x, w), y: Math.max(20, bb.min.y - h / 2 - 1) };
 }
 function updateSteam(dt) {
   for (let i = steam.length - 1; i >= 0; i--) {
@@ -1263,6 +1553,7 @@ function render(time, dt) {
     const t = THINGS[b.thing], img = t.imgs[Math.floor(time * (t.fps || 1) + b.id * 0.37) % t.imgs.length];
     labCtx.save();
     labCtx.translate(b.position.x, b.position.y); labCtx.rotate(b.angle);
+    if (b.gs !== 1) labCtx.scale(b.gs, b.gs);
     labCtx.drawImage(img, -img.width / 2, -img.height / 2);
     if (t.shine) drawGlint(t, b.id, time);
     labCtx.restore();
@@ -1289,7 +1580,7 @@ function frame(now) {
   acc += dtMs;
   let steps = 0;
   while (acc >= STEP && steps < 4) {
-    Engine.update(engine, STEP); resolveReactions(); acc -= STEP; steps++;
+    updateGrowth(STEP / 1000); Engine.update(engine, STEP); resolveReactions(); acc -= STEP; steps++;
     // round things slowly stop rolling instead of crossing the whole floor
     for (const b of items) if (b.circleRadius) Body.setAngularVelocity(b, b.angularVelocity * 0.97);
   }
@@ -1317,7 +1608,7 @@ for (const [g, label] of Object.entries(GENRES)) {
   bookPagesEl.append(b);
 }
 function buildBookPage() {
-  BOOK_ORDER = Object.keys(THINGS).filter(id => THINGS[id].genres.includes(bookPage));
+  BOOK_ORDER = PAGE_ORDER[bookPage] || Object.keys(THINGS).filter(id => THINGS[id].genres.includes(bookPage));
   bookGrid.innerHTML = "";
   bookCells = BOOK_ORDER.map(id => {
     const b = document.createElement("button");
@@ -1594,6 +1885,9 @@ function start() {
   if (saved) {
     Object.assign(S, { ...saved, stats: { ...S.stats, ...saved.stats }, mana: { ...S.mana, ...saved.mana }, liquid: { ...S.liquid, ...saved.liquid } });
     for (const it of saved.things || []) if (THINGS[it.t]) spawn(it.t, it.x, it.y, it.a, null, it.p || 0);
+    // a catalog saved before its shop had its own list gets the shop's things instead
+    S.catalog = S.catalog.map(e => SHOP_POOL[S.shop][e.t] ? e : newEntry());
+    for (const k of Object.keys(S.shopCatalogs)) if (!S.shopCatalogs[k].every(e => SHOP_POOL[k][e.t])) delete S.shopCatalogs[k];
     document.getElementById("intro").hidden = true; running = true;
     if (S.cleared) clear();
   } else {
