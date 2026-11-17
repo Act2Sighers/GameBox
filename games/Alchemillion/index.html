@@ -46,7 +46,14 @@ body {
 .slotlist { flex: none; height: 502px; overflow: hidden; position: relative; touch-action: none; cursor: grab; }
 .slottrack { display: flex; flex-direction: column; gap: 10px; will-change: transform; }
 .sidepanel .slotbox { flex: none; height: 118px; box-sizing: border-box; border: 2px solid var(--line); background: color-mix(in srgb, var(--panel) 70%, transparent); }
-.panelfoot { flex: 1; }   /* reserved for the researcher's picture later */
+.panelfoot { flex: 1; }
+.slotbox.shop { display: grid; grid-template-columns: 1fr auto; grid-template-rows: auto auto 1fr; padding: 8px 10px; gap: 2px 8px; align-content: start; }
+.shop-name { font-size: 16px; color: var(--ink); }
+.shop-cat { font-size: 12px; color: var(--muted); grid-column: 1; }
+.shop-open { grid-row: 1 / span 2; grid-column: 2; align-self: center; font: inherit; font-size: 12px; padding: 6px 8px; background: var(--gold); color: var(--btn-ink); border: 0; cursor: pointer; }
+.shop-open:disabled { background: transparent; color: var(--gold); border: 1px solid var(--gold); cursor: default; }
+.shop-open:focus-visible { outline: 2px solid var(--ink); outline-offset: 1px; }
+.slotbox.shop.current { border-color: var(--gold); background: color-mix(in srgb, var(--panel) 90%, var(--gold)); }   /* reserved for the researcher's picture later */
 #frame.portrait .sidepanel { position: absolute; top: 0; bottom: 0; width: 300px; z-index: 6; transition: transform .25s ease-out; box-shadow: 0 0 0 2px var(--line); }
 #frame.portrait #allyPanel { left: 0; transform: translateX(-104%); }
 #frame.portrait #boonPanel { right: 0; transform: translateX(104%); }
@@ -99,6 +106,7 @@ header { display: flex; align-items: flex-end; justify-content: space-between; g
 @media (prefers-reduced-motion: reduce) { #fader { transition: none; } }
 .title { font-size: 15px; letter-spacing: .08em; color: var(--muted); }
 .title b { color: var(--gold); font-weight: normal; }
+#shopLabel { color: var(--ink); margin-left: 6px; letter-spacing: .02em; }
 #balance { font-size: 26px; font-variant-numeric: tabular-nums; color: var(--ink); white-space: nowrap; }
 #balance small { font-size: 15px; color: var(--muted); margin-left: 2px; }
 #balance.minus { color: var(--minus); }
@@ -157,6 +165,8 @@ header { display: flex; align-items: flex-end; justify-content: space-between; g
 .xbtn { font: inherit; font-size: 18px; width: 36px; height: 36px; background: color-mix(in srgb, var(--line) 45%, var(--panel)); color: var(--ink); border: 0; cursor: pointer; }
 .xbtn:focus-visible { outline: 2px solid var(--ink); }
 .book-prog { font-size: 12px; color: var(--muted); margin: 0; }
+.book-pages { grid-template-columns: repeat(auto-fit, minmax(0, 1fr)); }
+.book-pages button { font-size: 14px; padding: 7px 0; }
 #bookGrid { display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); gap: 4px; }
 .bcell { font: inherit; aspect-ratio: 1; padding: 0; display: grid; place-items: center; background: var(--bg); border: 2px solid var(--line); cursor: pointer; }
 .bcell canvas { width: 40px; height: 40px; image-rendering: pixelated; }
@@ -175,11 +185,11 @@ dl.stats dd { margin: 0; text-align: right; font-variant-numeric: tabular-nums; 
 </style>
 
 <div id="app"><div id="frame" class="portrait">
-<aside id="allyPanel" class="sidepanel" aria-label="提携"><h2>提携<small>Cooperation</small></h2><div class="slotlist"><div class="slottrack"><div class="slotbox"></div><div class="slotbox"></div><div class="slotbox"></div><div class="slotbox"></div><div class="slotbox"></div><div class="slotbox"></div></div></div><div class="panelfoot"></div></aside>
+<aside id="allyPanel" class="sidepanel" aria-label="提携"><h2>提携<small>Cooperation</small></h2><div class="slotlist"><div class="slottrack" id="shopTrack"></div></div><div class="panelfoot"></div></aside>
 <div id="main">
   <header>
     <div class="hl">
-      <div class="title"><b>Alche</b>million</div>
+      <div class="title"><b>Alche</b>million <span id="shopLabel">《標準》</span></div>
       <div id="balance">0.00<small>M</small></div>
     </div>
     <div class="hr">
@@ -225,6 +235,7 @@ dl.stats dd { margin: 0; text-align: right; font-variant-numeric: tabular-nums; 
 <div id="book" class="overlay" hidden>
   <div class="sheet book" role="dialog" aria-labelledby="bookTitle">
     <div class="book-head"><h2 id="bookTitle">図鑑</h2><button class="xbtn" id="bookClose" type="button" aria-label="閉じる">×</button></div>
+    <div class="seg book-pages" id="bookPages" role="tablist"></div>
     <p class="book-prog" id="bookProg"></p>
     <div id="bookGrid"></div>
     <div id="bookDetail"></div>
@@ -337,7 +348,7 @@ const THINGS = {
   clay: { name: "粘土", w: 16, h: 11, shape: "rect", buy: 4, sell: 2, draw: d => {
     d.ell(8, 6.5, 8, 4.8, "#b0674a"); d.ell(6, 4.5, 4.5, 2.8, "#c27a5a"); d.p(4, 3, "#d8987a"); d.p(5, 3, "#d8987a");
     d.ell(10.5, 6, 1.8, 1.4, "#9a573e"); d.p(10, 5, "#8e4e36"); d.r(3, 9, 9, 1, "#8e4e36"); } },
-  herb: { name: "薬草", w: 14, h: 14, shape: "circle", buy: 5, sell: 2.5, draw: d => {
+  herb: { name: "薬草の束", w: 14, h: 14, shape: "circle", buy: 5, sell: 2.5, draw: d => {
     d.ell(7, 6, 6.5, 6, "#4f8a43"); d.ell(4.5, 5, 3, 3.5, "#6fae5a"); d.ell(9.5, 4.5, 2.8, 3.2, "#6fae5a"); d.ell(7, 2.5, 2, 2.5, "#7cc066");
     d.r(4, 3, 1, 4, "#3f6e35"); d.r(9, 2, 1, 4, "#3f6e35"); d.r(6, 9, 2, 4, "#5d8a4e"); d.r(5, 10, 4, 1, "#c8a050");
     d.p(3, 3, "#a8e090"); d.p(10, 2, "#a8e090"); d.p(7, 1, "#c8f0b0"); } },
@@ -445,7 +456,13 @@ for (const [id, t] of Object.entries(THINGS)) {
 Object.assign(THINGS.campfire, { fps: 4.5 }); Object.assign(THINGS.furnace, { fps: 3.5 });
 Object.assign(THINGS.mushroom, { fps: 1.1 }); Object.assign(THINGS.crystalBall, { fps: 0.8 });
 // tags: ember (sets fuel alight), fuel (burns), heavy (breaks vials when it lands hard), vial (spills liquid)
-for (const id of ["campfire"]) THINGS[id].ember = true;
+for (const id of ["campfire"]) THINGS[id].ember = true;       // sets fuel alight (burning)
+for (const id of ["furnace"]) THINGS[id].hot = true;          // boils liquid away (evaporation)
+for (const id of ["campfire"]) THINGS[id].drinker = true;     // changes when it touches liquid (absorbing)
+// genres: which shop's world a thing belongs to (one thing can be in several; the encyclopedia has a page per genre)
+const GENRES = { tool: "道具屋", nature: "薬草取り" };
+for (const t of Object.values(THINGS)) t.genres = ["tool"];
+for (const id of ["water", "wood", "herb", "mushroom", "tonic"]) THINGS[id].genres.push("nature");
 for (const id of ["herb", "mushroom", "sulfur"]) THINGS[id].fuel = true;
 for (const id of ["salt", "ironScrap", "lead", "hammer", "brick", "ingot", "furnace"]) THINGS[id].heavy = true;
 Object.entries({ water: "#9fd4f4", mercury: "#a8acb8", tonic: "#a8d870", healing: "#e04a5a", mana: "#4a6ad8", elixir: "#f0c030", elixirOfLife: "#ff8ad0" })
@@ -454,6 +471,13 @@ Object.entries({ water: "#9fd4f4", mercury: "#a8acb8", tonic: "#a8d870", healing
 for (const id of ["glass", "mirror", "silver", "gold", "crown", "royalCrown", "philosopherStone", "crystalBall", "elixir", "elixirOfLife"]) THINGS[id].shine = true;
 // catalog list with how often each appears
 const CATALOG_POOL = { sand: 10, water: 10, wood: 10, clay: 9, herb: 10, salt: 7, ironScrap: 8, flint: 5, mushroom: 6, sulfur: 6, lead: 7, mercury: 6, hammer: 3 };
+// 提携: every shop keeps its own catalog. For now every shop draws from the standard list.
+const SHOPS = [
+  { id: "tool", name: "道具屋", cat: "標準" }, { id: "nature", name: "薬草取り", cat: "自然" }, { id: "mine", name: "採掘家", cat: "鉱山" },
+  { id: "machine", name: "金物技師", cat: "機械" }, { id: "magic", name: "魔術書店", cat: "魔法" }, { id: "cook", name: "料理人", cat: "調理" },
+  { id: "summon", name: "召喚士", cat: "使役" },
+];
+const SHOP_POOL = Object.fromEntries(SHOPS.map(sh => [sh.id, CATALOG_POOL]));
 
 // ---------------------------------------------------------------- reactions
 // fuse: A + B -> C (both replaced by one).  improve: target touching tool -> target becomes result, tool stays.
@@ -474,8 +498,20 @@ const pairKey = (a, b) => a < b ? `${a}|${b}` : `${b}|${a}`;
 const REACTIONS = new Map(), RECIPES = [];
 for (const [a, b, c] of FUSE) { const r = { key: "f:" + pairKey(a, b), kind: "fuse", a, b, out: c }; REACTIONS.set(pairKey(a, b), r); RECIPES.push(r); }
 for (const [t, tool, out] of IMPROVE) { const r = { key: `i:${t}|${tool}`, kind: "improve", target: t, tool, out }; REACTIONS.set(pairKey(t, tool), r); RECIPES.push(r); }
-const recipeText = r => r.kind === "fuse" ? `${THINGS[r.a].name} ＋ ${THINGS[r.b].name} → ${THINGS[r.out].name}`
-  : `${THINGS[r.target].name} を ${THINGS[r.tool].name} で改良 → ${THINGS[r.out].name}`;
+// 分解: A touching B -> A is replaced by C and D, B stays. Nothing left afterwards may react with anything else left.
+const SPLIT = []; // [A, B, C, D] (none yet)
+for (const [t, tool, c, d] of SPLIT) { const r = { key: `s:${t}|${tool}`, kind: "split", target: t, tool, outs: [c, d] }; REACTIONS.set(pairKey(t, tool), r); RECIPES.push(r); }
+// 吸水: a 【水飲み】 thing touching the liquid turns into another thing; each change uses up one vial's worth of liquid
+const ABSORB = [["campfire", "wood"]];
+const ABSORB_OF = {};
+for (const [t, out] of ABSORB) { const r = { key: `a:${t}`, kind: "absorb", target: t, out }; ABSORB_OF[t] = r; RECIPES.push(r); }
+const nm = id => THINGS[id].name;
+const recipeText = r => r.kind === "fuse" ? `${nm(r.a)} ＋ ${nm(r.b)} → ${nm(r.out)}`
+  : r.kind === "improve" ? `${nm(r.target)} を ${nm(r.tool)} で改良 → ${nm(r.out)}`
+  : r.kind === "split" ? `${nm(r.target)} が ${nm(r.tool)} に触れて分解 → ${nm(r.outs[0])} ＋ ${nm(r.outs[1])}`
+  : `${nm(r.target)} が吸水 → ${nm(r.out)}`;
+const recipeMakes = (r, id) => r.out === id || (r.outs || []).includes(id);
+const recipeUses = (r, id) => r.a === id || r.b === id || r.target === id || r.tool === id;
 
 // ---------------------------------------------------------------- encyclopedia data (kept across "もう一度遊ぶ")
 const BOOK_KEY = "Alchemillion.book.v1";
@@ -548,7 +584,7 @@ const SELL_ZONE_Y = LAB_H + 6; // taps at or below this line open the floor
 let S; // everything that is saved
 function freshState() {
   return {
-    balance: M(50), catalog: [], portalX: LAB_W / 2, things: [], playMs: 0, cleared: false,
+    balance: M(50), catalog: [], shop: "tool", shopCatalogs: {}, portalX: LAB_W / 2, things: [], playMs: 0, cleared: false,
     mana: { fire: 0, water: 0, wind: 0, earth: 0 }, liquid: { n: 0, color: "#9fd4f4" },
     stats: { buyTotal: 0, buyCount: 0, sellTotal: 0, sellCount: 0, maxOnBoard: 0, best: null, minBalance: M(50) },
   };
@@ -557,7 +593,7 @@ const newEntry = () => ({ t: randomCatalogThing(), p: 0 });
 const freshCatalog = () => Array.from({ length: 6 }, newEntry);
 const plusMul = p => 1 + (p || 0); // "+N" doubles, triples, ... the price
 function randomCatalogThing() {
-  const entries = Object.entries(CATALOG_POOL), sum = entries.reduce((s, [, w]) => s + w, 0);
+  const entries = Object.entries(SHOP_POOL[S?.shop] || CATALOG_POOL), sum = entries.reduce((s, [, w]) => s + w, 0);
   let r = Math.random() * sum;
   for (const [id, w] of entries) { r -= w; if (r <= 0) return id; }
   return entries[0][0];
@@ -673,13 +709,20 @@ function resolveReactions() {
       used.add(a); used.add(b); removeItem(a); removeItem(b);
       const n = spawn(r.out, x, y, 0, v, (a.plus || 0) + (b.plus || 0)); used.add(n);
       burst(x, y, "#c8a8ff"); announce(r, "fuse");
-    } else {
+    } else if (r.kind === "improve") {
       const target = a.thing === r.target && b.thing === r.tool ? a : b, tool = target === a ? b : a;
       used.add(target);
       const { x, y } = target.position;
       removeItem(target);
       const n = spawn(r.out, x, y, target.angle, target.velocity, (target.plus || 0) + (tool.plus || 0)); used.add(n);
       burst(x, y, "#ffd870"); announce(r, "improve");
+    } else if (r.kind === "split") {
+      const target = a.thing === r.target && b.thing === r.tool ? a : b, tool = target === a ? b : a;
+      used.add(target);
+      const { x, y } = target.position, pl = (target.plus || 0) + (tool.plus || 0);
+      removeItem(target);
+      for (const [k, out] of r.outs.entries()) used.add(spawn(out, x + (k ? 3 : -3), y - k * 2, target.angle, target.velocity, pl));
+      burst(x, y, "#a8e8c8"); announce(r, "split");
     }
   }
   touching = [];
@@ -712,7 +755,7 @@ function announce(r, kind) {
   const isNew = !book.recipes.has(r.key);
   if (isNew) { book.recipes.add(r.key); saveBook(); }
   if (isNew) { toast(`新しいレシピ！ ${recipeText(r)}`, "new"); sfx.discover(); }
-  else { toast(r.kind === "fuse" ? `${THINGS[r.a].name} ＋ ${THINGS[r.b].name} → ${THINGS[r.out].name}` : `${THINGS[r.target].name} → ${THINGS[r.out].name}（${THINGS[r.tool].name}）`, "react"); kind === "fuse" ? sfx.fuse() : sfx.improve(); }
+  else { toast(recipeText(r), "react"); kind === "fuse" || kind === "split" ? sfx.fuse() : sfx.improve(); }
 }
 
 // ---------------------------------------------------------------- liquid, evaporation, steam
@@ -721,13 +764,25 @@ const liquidHeight = () => Math.min(S.liquid.n * LIQ_STEP, FLOOR_TOP - 40);
 let drainFrom = 0, drainT = 1, evapT = 0;
 const steam = []; // { x, y } rising puffs
 // While part of an ember is under the surface, the liquid boils away one vial's worth at a time.
+let absorbT = 0;
+const lowestUnder = (surface, ok) => { let low = null; for (const b of items) if (ok(THINGS[b.thing]) && b.bounds.max.y > surface && (!low || b.position.y > low.position.y)) low = b; return low; };
 function updateLiquid(dt) {
   if (drainT < 1) drainT += dt / 0.45;
-  evapT -= dt;
+  evapT -= dt; absorbT -= dt;
+  // 吸水: the lowest 【水飲み】 thing reaching into the liquid changes, using up one vial's worth
+  if (S.liquid.n && absorbT <= 0) {
+    const d = lowestUnder(FLOOR_TOP - liquidHeight(), t => t.drinker);
+    if (d) {
+      const r = ABSORB_OF[d.thing], { x, y } = d.position;
+      removeItem(d); spawn(r.out, x, y, d.angle, d.velocity, d.plus || 0);
+      S.liquid.n--; absorbT = 0.12;
+      burst(x, y, "#9fd4f4"); announce(r, "absorb");
+    }
+  }
+  // 蒸発: while part of a 【高温】 thing is under the surface, the liquid boils away one vial's worth at a time
   if (!S.liquid.n || evapT > 0) return;
   const surface = FLOOR_TOP - liquidHeight();
-  let lowest = null;
-  for (const b of items) if (THINGS[b.thing].ember && b.bounds.max.y > surface && (!lowest || b.position.y > lowest.position.y)) lowest = b;
+  const lowest = lowestUnder(surface, t => t.hot);
   if (!lowest) return;
   S.liquid.n--; evapT = 0.14;
   steam.push({ x: lowest.position.x, y: Math.min(lowest.position.y, surface), t: 0 });
@@ -1231,23 +1286,36 @@ function frame(now) {
 
 // ---------------------------------------------------------------- encyclopedia window
 const bookEl = document.getElementById("book"), bookGrid = document.getElementById("bookGrid"), bookDetail = document.getElementById("bookDetail");
-const BOOK_ORDER = Object.keys(THINGS);
-let bookSel = null;
-const bookCells = BOOK_ORDER.map(id => {
+let bookSel = null, bookPage = "tool", BOOK_ORDER = [], bookCells = [];
+const bookPagesEl = document.getElementById("bookPages");
+for (const [g, label] of Object.entries(GENRES)) {
   const b = document.createElement("button");
-  b.type = "button"; b.className = "bcell"; b.innerHTML = `<canvas width="40" height="40"></canvas>`;
-  b.addEventListener("click", () => { bookSel = id; sfx.ui(); renderBook(); });
-  bookGrid.append(b);
-  return b;
-});
+  b.type = "button"; b.setAttribute("role", "tab"); b.dataset.page = g; b.textContent = label;
+  b.addEventListener("click", () => { if (bookPage !== g) { bookPage = g; bookSel = null; sfx.ui(); buildBookPage(); renderBook(); } });
+  bookPagesEl.append(b);
+}
+function buildBookPage() {
+  BOOK_ORDER = Object.keys(THINGS).filter(id => THINGS[id].genres.includes(bookPage));
+  bookGrid.innerHTML = "";
+  bookCells = BOOK_ORDER.map(id => {
+    const b = document.createElement("button");
+    b.type = "button"; b.className = "bcell"; b.innerHTML = `<canvas width="40" height="40"></canvas>`;
+    b.addEventListener("click", () => { bookSel = id; sfx.ui(); renderBook(); });
+    bookGrid.append(b);
+    return b;
+  });
+  for (const b of bookPagesEl.children) b.setAttribute("aria-selected", b.dataset.page === bookPage ? "true" : "false");
+}
+buildBookPage();
 function silhouette(type, cv) {
   iconOf(type, cv);
   const g = cv.getContext("2d");
   g.globalCompositeOperation = "source-in"; g.fillStyle = "#3a3050"; g.fillRect(0, 0, cv.width, cv.height); g.globalCompositeOperation = "source-over";
 }
 function renderBook() {
-  const seenCount = book.things.size, total = BOOK_ORDER.length, rk = book.recipes.size;
-  document.getElementById("bookProg").textContent = `見つけたモノ ${seenCount} / ${total}　見つけたレシピ ${rk} / ${RECIPES.length}`;
+  for (const b of bookPagesEl.children) b.setAttribute("aria-checked", b.dataset.page === bookPage ? "true" : "false");
+  const seenCount = BOOK_ORDER.filter(id => book.things.has(id)).length, total = BOOK_ORDER.length, rk = book.recipes.size;
+  document.getElementById("bookProg").textContent = `このページのモノ ${seenCount} / ${total}　見つけたレシピ（全体） ${rk} / ${RECIPES.length}`;
   BOOK_ORDER.forEach((id, i) => {
     const c = bookCells[i], seen = book.things.has(id);
     (seen ? iconOf : silhouette)(id, c.querySelector("canvas"));
@@ -1262,9 +1330,9 @@ function renderBook() {
   add("div", t.name + (t.tool ? "（道具）" : ""), "bname");
   add("div", (t.buy ? `買値 ${fmt(t.buyC)}M　` : "カタログには並ばない　") + `売値 ${fmt(t.sellC)}M`, "bprice");
   const known = RECIPES.filter(r => book.recipes.has(r.key));
-  const made = known.filter(r => r.out === bookSel);
-  const uses = known.filter(r => r.a === bookSel || r.b === bookSel || r.target === bookSel || r.tool === bookSel);
-  const hidden = RECIPES.filter(r => !book.recipes.has(r.key) && (r.a === bookSel || r.b === bookSel || r.target === bookSel || r.tool === bookSel)).length;
+  const made = known.filter(r => recipeMakes(r, bookSel));
+  const uses = known.filter(r => recipeUses(r, bookSel));
+  const hidden = RECIPES.filter(r => !book.recipes.has(r.key) && recipeUses(r, bookSel)).length;
   if (made.length) { add("h3", "作り方"); const ul = add("ul", ""); for (const r of made) { const li = document.createElement("li"); li.textContent = recipeText(r); ul.append(li); } }
   else if (!t.buy) add("p", "作り方はまだ分からない。", "hintline");
   add("h3", "使い道");
@@ -1302,7 +1370,7 @@ document.getElementById("againBtn").addEventListener("click", () => {
   S = freshState();
   S.catalog = freshCatalog();
   steam.length = 0; drainT = 1;
-  renderCatalog(); renderBalance(); renderMana(); save();
+  renderCatalog(); renderBalance(); renderMana(); renderShops(); save();
   document.getElementById("result").hidden = true;
   lastHud = "";
 });
@@ -1339,7 +1407,7 @@ restartBtn.addEventListener("click", () => {
     running = false;
     try { localStorage.removeItem(SAVE_KEY); } catch (e) {}
     steam.length = 0; drainT = 1;
-    renderCatalog(); renderBalance(); renderMana(); lastHud = "";
+    renderCatalog(); renderBalance(); renderMana(); renderShops(); lastHud = "";
     document.getElementById("result").hidden = true;
     document.getElementById("intro").hidden = false;
     fader.classList.remove("on");
@@ -1360,7 +1428,10 @@ function load() {
     const d = JSON.parse(localStorage.getItem(SAVE_KEY) || "null");
     if (!d || !Array.isArray(d.catalog) || d.catalog.length !== 6) return null;
     d.catalog = d.catalog.map(e => typeof e === "string" ? { t: e, p: 0 } : e); // older saves kept plain ids
-    if (!d.catalog.every(e => THINGS[e?.t]?.buy && Number.isInteger(e.p))) return null;
+    const okCat = c => Array.isArray(c) && c.length === 6 && c.every(e => THINGS[e?.t]?.buy && Number.isInteger(e.p));
+    if (!okCat(d.catalog)) return null;
+    if (!SHOPS.some(sh => sh.id === d.shop)) d.shop = "tool";
+    d.shopCatalogs = Object.fromEntries(Object.entries(d.shopCatalogs || {}).filter(([k, c]) => SHOPS.some(sh => sh.id === k) && k !== d.shop && okCat(c)));
     return d;
   } catch (e) { return null; }
 }
@@ -1400,6 +1471,39 @@ function fit() {
 }
 addEventListener("resize", () => { fitFrame(); fit(); });
 new ResizeObserver(fit).observe(labWrap);
+
+// ---------------------------------------------------------------- alliance panel: shops and their catalogs
+const shopTrack = document.getElementById("shopTrack");
+const shopSlots = SHOPS.map(sh => {
+  const el = document.createElement("div");
+  el.className = "slotbox shop";
+  el.innerHTML = `<div class="shop-name"></div><div class="shop-cat"></div><button class="shop-open" type="button">カタログを開く</button>`;
+  el.querySelector(".shop-name").textContent = sh.name;
+  el.querySelector(".shop-cat").textContent = `《${sh.cat}カタログ》`;
+  el.querySelector("button").addEventListener("click", () => switchShop(sh.id));
+  shopTrack.append(el);
+  return el;
+});
+function renderShops() {
+  SHOPS.forEach((sh, i) => {
+    const cur = S.shop === sh.id, btn = shopSlots[i].querySelector("button");
+    shopSlots[i].classList.toggle("current", cur);
+    btn.disabled = cur; btn.textContent = cur ? "開いている" : "カタログを開く";
+  });
+  document.getElementById("shopLabel").textContent = `《${SHOPS.find(sh => sh.id === S.shop).cat}》`;
+}
+// The shop being left remembers its six slots; the shop being opened brings back its own (or a fresh set).
+function switchShop(id) {
+  if (id === S.shop || gathering) return;
+  S.shopCatalogs[S.shop] = S.catalog;
+  S.shop = id;
+  S.catalog = S.shopCatalogs[id] || freshCatalog();
+  delete S.shopCatalogs[id];
+  sfx.ui();
+  renderCatalog(Array(6).fill("fresh")); renderShops(); save();
+  closeDrawer();
+  checkGather();
+}
 
 // ---------------------------------------------------------------- side panel lists: drag (or wheel) to scroll
 for (const list of document.querySelectorAll(".slotlist")) {
@@ -1453,7 +1557,7 @@ function start() {
   } else {
     S.catalog = freshCatalog();
   }
-  renderCatalog(); renderBalance(); renderMana(); fitFrame(); fit();
+  renderCatalog(); renderBalance(); renderMana(); renderShops(); fitFrame(); fit();
   requestAnimationFrame(t => { last = t; frame(t); });
 }
 document.getElementById("startBtn").addEventListener("click", () => { audioInit(); sfx.ui(); document.getElementById("intro").hidden = true; running = true; save(); });
