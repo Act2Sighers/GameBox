@@ -660,7 +660,7 @@ Object.assign(THINGS.campfire, { fps: 4.5 }); Object.assign(THINGS.furnace, { fp
 Object.assign(THINGS.mushroom, { fps: 1.1 }); Object.assign(THINGS.crystalBall, { fps: 0.8 });
 Object.assign(THINGS.grownShroom, { fps: 1.1 }); Object.assign(THINGS.grownMera, { fps: 4 }); Object.assign(THINGS.grownHie, { fps: 2.2 });
 Object.assign(THINGS.holyFire, { fps: 4.5 }); Object.assign(THINGS.grownWorld, { fps: 0.7 });
-// tags: ember (sets fuel alight), fuel (burns), heavy (breaks vials when it lands hard), vial (spills liquid)
+// tags: ember (sets fuel alight), fuel (burns), cushion (catches vials safely), vial (breaks and spills liquid when it hits something hard)
 for (const id of ["campfire", "grownMera", "holyFire"]) THINGS[id].ember = true;   // 【火種】 sets fuel alight (burning)
 for (const id of ["furnace", "holyFire"]) THINGS[id].hot = true;                    // 【高温】 boils liquid away (evaporation)
 for (const id of ["grownHie"]) THINGS[id].frigid = true;                            // 【極低温】 freezes liquid into ice (freezing)
@@ -684,7 +684,10 @@ for (const id of NATURE_ORDER) THINGS[id].genres.push("nature");
   ids.forEach((id, i) => { if (i < natureStart || id === "hotWater" || id === "hotSpring") THINGS[id].genres.unshift("tool"); }); }
 for (const id of ["herb", "mushroom", "sulfur", "meraBundle", "hieBundle", "swampShroom", "herbSprout", "grownHerb", "hieSprout",
   "treeSprout", "youngTree", "fruitSprout", "youngFruit"]) THINGS[id].fuel = true;
-for (const id of ["salt", "ironScrap", "lead", "hammer", "brick", "ingot", "furnace", "flagstone", "mill"]) THINGS[id].heavy = true;
+// 【緩衝】 soft things that catch a falling vial: sacks, clay, bunches of leaves, mushroom caps, leafy grown plants and tree crowns.
+// Things that want water (【水飲み】) are left out on purpose, so a vial dropped on them breaks and waters them.
+for (const id of ["sand", "clay", "herb", "mushroom", "meraBundle", "hieBundle", "boneMeal", "grownShroom", "grownSwamp",
+  "grownHerb", "grownHie", "grownTree", "grownFruit", "grownWorld"]) THINGS[id].cushion = true;
 Object.entries({ water: "#9fd4f4", mercury: "#a8acb8", tonic: "#a8d870", healing: "#e04a5a", mana: "#4a6ad8", elixir: "#f0c030", elixirOfLife: "#ff8ad0",
   seaWater: "#40a8c8", hotWater: "#b0dcf8", hotSpring: "#d8e8a0", hotLiquid: "#f06a3a", warmPotion: "#ffa040", bitterLiquid: "#9a9a50", coolPotion: "#70e0f8", secretMedicine: "#c89af0" })
   .forEach(([id, col]) => { THINGS[id].vial = true; THINGS[id].liquid = col; });
@@ -976,6 +979,8 @@ function noteThing(type, plus = 0) {
 let touching = [];
 let lastThud = 0, impacts = [];
 const SPILL_SPEED = 3; // px per step: about a fall of a quarter of the lab
+// a vial breaks when it hits anything that is not 【緩衝】 (another thing, a wall or the floor) this fast
+const hardFor = o => o.label !== "item" || !THINGS[o.thing].cushion;
 Events.on(engine, "collisionStart", e => {
   for (const p of e.pairs) {
     touching.push(p);
@@ -984,17 +989,17 @@ Events.on(engine, "collisionStart", e => {
     const v = Math.hypot(a.velocity.x - b.velocity.x, a.velocity.y - b.velocity.y);
     const now = performance.now();
     if (v > 1.4 && now - lastThud > 60) { lastThud = now; sfx.thud(Math.min(1, (v - 1.4) / 4)); }
-    if (a.label === "item" && b.label === "item" && v > SPILL_SPEED) {
-      const ta = THINGS[a.thing], tb = THINGS[b.thing];
-      if (ta.heavy && tb.vial) impacts.push(b); else if (tb.heavy && ta.vial) impacts.push(a);
+    if (v > SPILL_SPEED && !bulk) {
+      if (a.label === "item" && THINGS[a.thing].vial && hardFor(b)) impacts.push([a, b]);
+      if (b.label === "item" && THINGS[b.thing].vial && hardFor(a)) impacts.push([b, a]);
     }
   }
 });
 Events.on(engine, "collisionActive", e => { for (const p of e.pairs) touching.push(p); });
 function resolveReactions() {
   const used = new Set(), now = performance.now();
-  // spills: a vial hit hard by something heavy (and vials right next to it)
-  for (const v of impacts) if (items.has(v)) spill(v, used);
+  // spills: a vial that hit something hard (and vials right next to it). A recipe between the two comes first.
+  for (const [v, o] of impacts) if (items.has(v) && !used.has(v) && !(o.label === "item" && REACTIONS.has(pairKey(v.thing, o.thing)))) spill(v, used);
   impacts = [];
   for (const p of touching) {
     const a = p.bodyA.parent, b = p.bodyB.parent;
