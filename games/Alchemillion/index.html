@@ -107,6 +107,9 @@ header { display: flex; align-items: flex-end; justify-content: space-between; g
 .opt { display: grid; gap: 6px; }
 .opt-label { font-size: 14px; }
 .opt-note { font-size: 12px; color: var(--muted); margin: 0; line-height: 1.6; }
+.dbg { display: grid; grid-template-columns: 1fr auto; align-items: center; gap: 2px 10px; font-size: 13px; }
+.dbg output { font-variant-numeric: tabular-nums; color: var(--gold); min-width: 3.5em; text-align: right; }
+.dbg input[type=range] { grid-column: 1 / -1; width: 100%; accent-color: var(--gold); }
 .optbtn { font: inherit; font-size: 15px; padding: 10px; background: color-mix(in srgb, var(--line) 45%, var(--panel)); color: var(--ink); border: 2px solid var(--line); cursor: pointer; }
 .optbtn:focus-visible { outline: 2px solid var(--ink); outline-offset: 1px; }
 #restartBtn { font: inherit; font-size: 15px; padding: 10px; background: color-mix(in srgb, var(--line) 45%, var(--panel)); color: var(--ink); border: 2px solid var(--line); cursor: pointer; }
@@ -286,6 +289,14 @@ dl.stats dd { margin: 0; text-align: right; font-variant-numeric: tabular-nums; 
     </div>
     <div class="opt">
       <button id="debugMoneyBtn" class="optbtn" type="button">10,000マニを獲得(デバッグ用)</button>
+    </div>
+    <div class="opt">
+      <div class="opt-label">物理の調整(デバッグ用)</div>
+      <label class="dbg" for="dbgSpill">薬瓶が割れる速さ<output id="dbgSpillOut"></output><input id="dbgSpill" type="range" min="1" max="8" step="0.25"></label>
+      <p class="opt-note">小さいほど割れやすい（初期値 3.00）。</p>
+      <label class="dbg" for="dbgFric">モノの滑りにくさ<output id="dbgFricOut"></output><input id="dbgFric" type="range" min="0" max="1" step="0.05"></label>
+      <p class="opt-note">大きいほど滑りにくい（初期値 0.60）。研究室にあるモノにもすぐ反映。</p>
+      <button id="dbgReset" class="optbtn" type="button">物理の調整を初期値に戻す</button>
     </div>
     <div class="opt">
       <button id="restartBtn" type="button">最初からやり直す</button>
@@ -937,6 +948,11 @@ function randomCatalogThing(around = []) {
 }
 
 // ---------------------------------------------------------------- physics
+// Tunable for testing (options → 物理の調整), kept on this device: the speed at which a vial breaks, and how much things grip.
+const PHYS_DEFAULT = { spill: 3, friction: 0.6 }, PHYS_KEY = "Alchemillion.physics";
+const PHYS = { ...PHYS_DEFAULT };
+try { const d = JSON.parse(localStorage.getItem(PHYS_KEY) || "null"); if (d) { if (d.spill >= 1 && d.spill <= 8) PHYS.spill = d.spill; if (d.friction >= 0 && d.friction <= 1) PHYS.friction = d.friction; } } catch (e) {}
+const staticOf = f => Math.min(1, f * 4 / 3); // static grip a little above sliding grip (0.6 -> 0.8 as before)
 const engine = Engine.create({ positionIterations: 10, velocityIterations: 8 });
 engine.gravity.scale = 0.0007;
 const world = engine.world;
@@ -991,7 +1007,7 @@ function updateBulk(dt) {
 const items = new Set();
 function spawn(type, x, y, angle = 0, vel = null, plus = 0) {
   const t = THINGS[type];
-  const opts = { friction: 0.6, frictionStatic: 0.8, frictionAir: 0.01, restitution: 0.05, density: 0.002, label: "item" };
+  const opts = { friction: PHYS.friction, frictionStatic: staticOf(PHYS.friction), frictionAir: 0.01, restitution: 0.05, density: 0.002, label: "item" };
   const b = t.shape === "circle" ? Bodies.circle(x, y, t.w / 2, opts)
     : Bodies.rectangle(x, y, t.w, t.h, { ...opts, chamfer: { radius: Math.min(2, t.h / 3) } });
   b.thing = type; b.born = performance.now(); b.plus = plus; b.gs = 1; b.calm = 0;
@@ -1043,7 +1059,7 @@ function noteThing(type, plus = 0) {
 // contacts collected during the step, resolved after it
 let touching = [];
 let lastThud = 0, impacts = [];
-const SPILL_SPEED = 3; // px per step: about a fall of a quarter of the lab
+// (PHYS.spill) px per step: about a fall of a quarter of the lab at the default 3
 // a vial breaks when it hits anything that is not 【緩衝】 (another thing, a wall or the floor) this fast
 const hardFor = o => o.label !== "item" || !THINGS[o.thing].cushion;
 Events.on(engine, "collisionStart", e => {
@@ -1054,7 +1070,7 @@ Events.on(engine, "collisionStart", e => {
     const v = Math.hypot(a.velocity.x - b.velocity.x, a.velocity.y - b.velocity.y);
     const now = performance.now();
     if (v > 1.4 && now - lastThud > 60) { lastThud = now; sfx.thud(Math.min(1, (v - 1.4) / 4)); }
-    if (v > SPILL_SPEED && !bulk) {
+    if (v > PHYS.spill && !bulk) {
       if (a.label === "item" && THINGS[a.thing].vial && hardFor(b)) impacts.push([a, b]);
       if (b.label === "item" && THINGS[b.thing].vial && hardFor(a)) impacts.push([b, a]);
     }
@@ -1869,6 +1885,22 @@ document.getElementById("optClose").addEventListener("click", closeOptions);
 optEl.addEventListener("pointerdown", e => { if (e.target === optEl) closeOptions(); });
 addEventListener("keydown", e => { if (e.key === "Escape" && !optEl.hidden) closeOptions(); });
 sndButtons.forEach(b => b.addEventListener("click", () => { setSound(b.dataset.snd === "on"); renderOptions(); }));
+const dbgSpill = document.getElementById("dbgSpill"), dbgFric = document.getElementById("dbgFric");
+function renderPhys() {
+  dbgSpill.value = PHYS.spill; dbgFric.value = PHYS.friction;
+  document.getElementById("dbgSpillOut").textContent = PHYS.spill.toFixed(2);
+  document.getElementById("dbgFricOut").textContent = PHYS.friction.toFixed(2);
+}
+function setPhys(k, v) {
+  PHYS[k] = v;
+  if (k === "friction") for (const b of items) { b.friction = v; b.frictionStatic = staticOf(v); }
+  try { localStorage.setItem(PHYS_KEY, JSON.stringify(PHYS)); } catch (e) {}
+  renderPhys();
+}
+dbgSpill.addEventListener("input", () => setPhys("spill", +dbgSpill.value));
+dbgFric.addEventListener("input", () => setPhys("friction", +dbgFric.value));
+document.getElementById("dbgReset").addEventListener("click", () => { sfx.ui(); setPhys("spill", PHYS_DEFAULT.spill); setPhys("friction", PHYS_DEFAULT.friction); });
+renderPhys();
 document.getElementById("debugMoneyBtn").addEventListener("click", () => {
   if (!running || S.cleared) return;
   S.balance += M(10000); sfx.coin(); renderBalance(); save();
