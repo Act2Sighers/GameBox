@@ -81,7 +81,10 @@ header { display: flex; align-items: flex-end; justify-content: space-between; g
 .hbtn:focus-visible { outline: 2px solid var(--ink); outline-offset: 1px; }
 .hbtn.gear { display: grid; place-items: center; padding: 6px 9px; }
 .hr { display: grid; justify-items: end; gap: 6px; }
-#mana { display: flex; justify-content: flex-end; gap: 10px; margin: -12px 0 -2px; line-height: 16px; font-size: 13px; font-variant-numeric: tabular-nums; color: var(--ink); }
+#statusRow { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin: -12px 0 -2px; line-height: 16px; }
+#mana { display: flex; justify-content: flex-end; gap: 10px; font-size: 13px; font-variant-numeric: tabular-nums; color: var(--ink); }
+#timer { position: absolute; top: 12px; left: 50%; transform: translateX(-50%); font-size: 15px; letter-spacing: .06em; font-variant-numeric: tabular-nums; color: var(--ink); pointer-events: none; }
+.trophy { width: 18px; height: 18px; image-rendering: pixelated; vertical-align: -3px; margin-left: 6px; }
 #mana span[hidden] { display: none; }
 #mana span { display: flex; align-items: center; gap: 2px; }
 #mana img { width: 14px; height: 14px; image-rendering: pixelated; }
@@ -115,7 +118,7 @@ header { display: flex; align-items: flex-end; justify-content: space-between; g
 .title { font-size: 15px; letter-spacing: .08em; color: var(--muted); }
 .title b { color: var(--gold); font-weight: normal; }
 .title { white-space: nowrap; }
-#shopLabel { color: var(--ink); margin-left: 6px; letter-spacing: .02em; }
+#shopLabel { font-size: 12px; color: var(--ink); letter-spacing: .02em; white-space: nowrap; }
 #balance { font-size: 26px; font-variant-numeric: tabular-nums; color: var(--ink); white-space: nowrap; }
 #balance small { font-size: 15px; color: var(--muted); margin-left: 2px; }
 #balance.minus { color: var(--minus); }
@@ -134,6 +137,14 @@ header { display: flex; align-items: flex-end; justify-content: space-between; g
 .card:hover:not(.off) { border-color: var(--gold); }
 .card:active:not(.off) { transform: translateY(1px); }
 .card.off { opacity: .4; cursor: not-allowed; }
+.card { -webkit-touch-callout: none; user-select: none; -webkit-user-select: none; transition: background-color .5s; }
+.card .pin { display: none; position: absolute; top: 2px; left: 3px; font-size: 9px; line-height: 1.3; padding: 0 2px; color: var(--btn-ink); background: var(--gold); }
+.card.holding:not(.off) { background: color-mix(in srgb, var(--line) 55%, var(--panel)); }
+.card.fixed { background: color-mix(in srgb, var(--line) 70%, var(--panel)); border-color: var(--gold); }
+.card.fixed .pin { display: block; }
+.card.fixed .nm { color: var(--ink); }
+.card.poor .pr { color: var(--minus); }
+.card.poor canvas { opacity: .55; }
 .card.nope { animation: nope .3s; }
 @keyframes nope { 20% { transform: translateX(-3px); } 40% { transform: translateX(3px); } 60% { transform: translateX(-2px); } 80% { transform: translateX(1px); } }
 .card:focus-visible { outline: 2px solid var(--ink); outline-offset: 1px; }
@@ -198,7 +209,7 @@ dl.stats dd { margin: 0; text-align: right; font-variant-numeric: tabular-nums; 
 <div id="main">
   <header>
     <div class="hl">
-      <div class="title"><b>Alche</b>million <span id="shopLabel">《標準》</span></div>
+      <div class="title"><b>Alche</b>million</div>
       <div id="balance">0.00<small>M</small></div>
     </div>
     <div class="hr">
@@ -210,7 +221,8 @@ dl.stats dd { margin: 0; text-align: right; font-variant-numeric: tabular-nums; 
     </div>
     </div>
   </header>
-  <div id="mana" aria-label="魔素"></div>
+  <div id="timer" aria-label="経過時間">00:00</div>
+  <div id="statusRow"><span id="shopLabel">《標準》</span><div id="mana" aria-label="魔素"></div></div>
   <div id="notice" hidden>研究室のモノを全部売れば、残高が 1,000,000M に届きます</div>
   <div id="catalog" role="toolbar" aria-label="カタログ"></div>
   <div id="labWrap">
@@ -423,75 +435,75 @@ function tree(d, w, h, pal, grown, dots = [], cols = []) {
 // ---------------------------------------------------------------- the things (モノ)
 // shape: "circle" (w = h = diameter) or "rect". buy = catalog price (only catalog things), sell = sale price.
 const THINGS = {
-  sand: { name: "砂袋", w: 16, h: 14, shape: "rect", buy: 3, sell: 1.5, draw: d => {
+  sand: { name: "砂袋", w: 16, h: 14, shape: "rect", draw: d => {
     d.ell(8, 9.5, 8, 4.8, "#c9a66b"); d.r(4, 3, 8, 5, "#c9a66b"); d.r(5, 0, 6, 3, "#d8b880"); d.r(6, 0, 4, 1, "#e8d0a0");
     d.r(4, 3, 8, 1, "#7a5a30"); d.p(11, 2, "#7a5a30"); d.p(12, 1, "#7a5a30");
     for (let y = 6; y < 14; y += 2) for (let x = 2 + (y % 4 ? 1 : 0); x < 15; x += 3) d.p(x, y, "#b8925a");
     d.r(1, 9, 1, 3, "#a5844e"); d.r(13, 7, 2, 1, "#e8d39a"); d.p(14, 13, "#e8d39a"); } },
-  water: { name: "湧き水の瓶", w: 10, h: 15, shape: "rect", buy: 3, sell: 1.5, draw: (d, w, h) => bottle(d, w, h, "#4a90d0", 8) },
-  wood: { name: "薪", w: 28, h: 9, shape: "rect", buy: 4, sell: 2, draw: d => {
+  water: { name: "湧き水の瓶", w: 10, h: 15, shape: "rect", draw: (d, w, h) => bottle(d, w, h, "#4a90d0", 8) },
+  wood: { name: "薪", w: 28, h: 9, shape: "rect", draw: d => {
     d.r(0, 1, 26, 7, "#8a5a30"); d.r(0, 1, 26, 1, "#a87240"); d.r(0, 7, 26, 1, "#6a4220");
     d.r(2, 3, 6, 1, "#6a4220"); d.r(12, 4, 7, 1, "#6a4220"); d.r(7, 5, 5, 1, "#74482a"); d.r(20, 2, 4, 1, "#74482a");
     d.ell(16, 4.5, 1.6, 1.2, "#5a3818"); d.ell(26.5, 4.5, 1.6, 4, "#d8b080"); d.p(26, 4, "#a87240"); d.p(26, 2, "#c89a68");
     d.r(18, 0, 1, 1, "#5d8a4e"); d.p(19, 0, "#6fae5a"); } },
-  clay: { name: "粘土", w: 16, h: 11, shape: "rect", buy: 4, sell: 2, draw: d => {
+  clay: { name: "粘土", w: 16, h: 11, shape: "rect", draw: d => {
     d.ell(8, 6.5, 8, 4.8, "#b0674a"); d.ell(6, 4.5, 4.5, 2.8, "#c27a5a"); d.p(4, 3, "#d8987a"); d.p(5, 3, "#d8987a");
     d.ell(10.5, 6, 1.8, 1.4, "#9a573e"); d.p(10, 5, "#8e4e36"); d.r(3, 9, 9, 1, "#8e4e36"); } },
-  herb: { name: "薬草の束", w: 14, h: 14, shape: "circle", buy: 5, sell: 2.5, draw: d => {
+  herb: { name: "薬草の束", w: 14, h: 14, shape: "circle", draw: d => {
     d.ell(7, 6, 6.5, 6, "#4f8a43"); d.ell(4.5, 5, 3, 3.5, "#6fae5a"); d.ell(9.5, 4.5, 2.8, 3.2, "#6fae5a"); d.ell(7, 2.5, 2, 2.5, "#7cc066");
     d.r(4, 3, 1, 4, "#3f6e35"); d.r(9, 2, 1, 4, "#3f6e35"); d.r(6, 9, 2, 4, "#5d8a4e"); d.r(5, 10, 4, 1, "#c8a050");
     d.p(3, 3, "#a8e090"); d.p(10, 2, "#a8e090"); d.p(7, 1, "#c8f0b0"); } },
-  salt: { name: "岩塩", w: 12, h: 10, shape: "rect", buy: 6, sell: 3, draw: d => {
+  salt: { name: "岩塩", w: 12, h: 10, shape: "rect", draw: d => {
     d.r(1, 1, 10, 8, "#e8c8c8"); d.r(0, 3, 12, 5, "#e8c8c8"); d.r(2, 1, 4, 3, "#f8e8ea"); d.r(6, 1, 4, 2, "#f0d4d6");
     d.r(7, 5, 4, 3, "#c8a0a8"); d.r(1, 6, 3, 2, "#d8b0b6"); d.r(6, 3, 1, 5, "#d0a8b0"); d.p(3, 2, "#ffffff"); d.p(9, 2, "#ffffff"); } },
-  ironScrap: { name: "鉄くず", w: 14, h: 10, shape: "rect", buy: 6, sell: 3, draw: d => {
+  ironScrap: { name: "鉄くず", w: 14, h: 10, shape: "rect", draw: d => {
     d.r(0, 5, 8, 4, "#6a6f78"); d.r(1, 5, 6, 1, "#8a8f99"); d.r(5, 0, 3, 7, "#7a7f88"); d.r(5, 0, 1, 7, "#9aa0aa");
     d.r(8, 3, 6, 3, "#7a7f88"); d.r(8, 3, 6, 1, "#9aa0aa"); d.ell(11, 7.5, 2.5, 2.5, "#6a6f78"); d.p(11, 7, "#3a3d44");
     d.r(1, 7, 3, 2, "#b8602e"); d.p(6, 2, "#b8602e"); d.p(6, 3, "#c87038"); d.r(9, 4, 2, 1, "#b8602e"); d.p(13, 8, "#c87038"); d.p(2, 6, "#d8884a"); } },
-  flint: { name: "火打ち石", w: 10, h: 9, shape: "rect", buy: 8, sell: 4, tool: true, draw: d => {
+  flint: { name: "火打ち石", w: 10, h: 9, shape: "rect", tool: true, draw: d => {
     d.ell(5, 5, 5, 4, "#4a4a55"); d.r(2, 2, 3, 2, "#8a8a96"); d.p(1, 5, "#33333c"); d.p(8, 1, "#ffd860"); d.p(9, 0, "#fff0a0"); } },
-  mushroom: { name: "光るキノコ", w: 13, h: 14, shape: "rect", buy: 9, sell: 4.5, frames: 2, draw: (d, w, h, f) => {
+  mushroom: { name: "光るキノコ", w: 13, h: 14, shape: "rect", frames: 2, draw: (d, w, h, f) => {
     d.r(5, 7, 3, 7, "#e8e0c8"); d.r(5, 7, 1, 7, "#f8f0d8"); d.r(4, 13, 5, 1, "#c8c0a8");
     d.ell(6.5, 5, 6.5, 5, f ? "#4ac8c0" : "#3fb8b0"); d.ell(6.5, 4, 5, 3.5, f ? "#80e8e0" : "#6ad8d0"); d.r(2, 7, 9, 1, "#2a8a84");
     d.p(4, 3, "#d8fff8"); d.p(8, 2, "#d8fff8"); d.p(9, 5, "#d8fff8"); if (f) { d.p(3, 5, "#ffffff"); d.p(6, 1, "#ffffff"); } } },
-  sulfur: { name: "硫黄", w: 13, h: 12, shape: "rect", buy: 10, sell: 5, draw: d => {
+  sulfur: { name: "硫黄", w: 13, h: 12, shape: "rect", draw: d => {
     d.ell(6, 7.5, 6, 4.5, "#e0c838"); d.r(3, 2, 4, 6, "#f2e070"); d.r(7, 1, 3, 6, "#e8d040"); d.r(9, 4, 3, 4, "#d8c030");
     d.p(4, 2, "#fff8c0"); d.p(8, 1, "#fff8c0"); d.r(2, 9, 3, 1, "#b8a020"); d.r(8, 9, 3, 1, "#b8a020"); d.r(6, 2, 1, 5, "#c8b028"); } },
-  lead: { name: "鉛の塊", w: 15, h: 11, shape: "rect", buy: 12, sell: 6, draw: d => {
+  lead: { name: "鉛の塊", w: 15, h: 11, shape: "rect", draw: d => {
     d.ell(7.5, 6.5, 7.5, 4.5, "#545a72"); d.ell(6.5, 5, 5.5, 3.5, "#626882"); d.ell(5, 4, 2.5, 1.5, "#767c96");
     d.ell(10.5, 7.5, 1.6, 1.2, "#444a60"); d.ell(4, 8, 1.2, 0.9, "#444a60"); d.r(3, 10, 9, 1, "#3e435a"); } },
-  mercury: { name: "水銀の瓶", w: 11, h: 16, shape: "rect", buy: 14, sell: 7, draw: (d, w, h) => { bottle(d, w, h, "#b8bccc", 7, "#5a4a6a"); d.r(4, 12, 3, 1, "#f0f2ff"); } },
-  hammer: { name: "金槌", w: 22, h: 11, shape: "rect", buy: 15, sell: 7.5, tool: true, draw: d => {
+  mercury: { name: "水銀の瓶", w: 11, h: 16, shape: "rect", draw: (d, w, h) => { bottle(d, w, h, "#b8bccc", 7, "#5a4a6a"); d.r(4, 12, 3, 1, "#f0f2ff"); } },
+  hammer: { name: "金槌", w: 22, h: 11, shape: "rect", tool: true, draw: d => {
     d.r(0, 4, 16, 3, "#a87240"); d.r(0, 4, 16, 1, "#c89058"); d.r(15, 0, 7, 11, "#8a8f99"); d.r(15, 0, 7, 2, "#b0b5c0"); d.r(14, 3, 1, 5, "#6a6f78"); } },
-  campfire: { name: "焚き火", w: 24, h: 16, shape: "rect", sell: 10, tool: true, frames: 3, draw: (d, w, h, f) => {
+  campfire: { name: "焚き火", w: 24, h: 16, shape: "rect", tool: true, frames: 3, draw: (d, w, h, f) => {
     d.r(1, 12, 22, 3, "#8a5a30"); d.r(1, 12, 22, 1, "#a87240"); d.r(3, 10, 18, 2, "#6a4220"); d.r(0, 14, 24, 2, "#5a3a20");
     d.ell(22.5, 13.5, 1.5, 1.5, "#d8b080"); d.ell(1.5, 13.5, 1.5, 1.5, "#d8b080");
     const sway = [0, 1, -1][f];
     d.ell(12 + sway * 0.5, 8, 6, 6 - (f === 1 ? 1 : 0), "#e86a30"); d.ell(12 + sway, 9, 4, 4, "#f8a840"); d.ell(12, 10, 2, 2.5, "#fff0a0");
     d.r(11 + sway, 1 + f, 2, 3, "#e86a30"); d.p(12 + sway, f, "#f8a840");
     d.p([7, 16, 9][f], [3, 2, 1][f], "#f8a840"); d.p([17, 6, 15][f], [1, 3, 4][f], "#ffd060"); } },
-  glass: { name: "ガラス玉", w: 12, h: 12, shape: "circle", sell: 12, draw: d => {
+  glass: { name: "ガラス玉", w: 12, h: 12, shape: "circle", draw: d => {
     d.ell(6, 6, 6, 6, "#9fd0e0"); d.ell(6, 6, 4.5, 4.5, "#bfe6f0"); d.r(3, 3, 2, 2, "#ffffff"); d.p(8, 8, "#7ab0c8"); } },
-  brick: { name: "レンガ", w: 16, h: 8, shape: "rect", sell: 10, draw: d => {
+  brick: { name: "レンガ", w: 16, h: 8, shape: "rect", draw: d => {
     d.r(0, 0, 16, 8, "#b0503a"); d.r(0, 0, 16, 1, "#c86a50"); d.r(0, 7, 16, 1, "#8a3a28"); d.r(15, 1, 1, 6, "#9a4230");
     for (const [x, y, c] of [[3, 3, "#d88a6a"], [11, 4, "#d88a6a"], [7, 5, "#8a3a28"], [5, 2, "#9a4230"], [13, 2, "#c86a50"], [9, 3, "#9a4230"]]) d.p(x, y, c); } },
-  ingot: { name: "鉄塊", w: 18, h: 9, shape: "rect", sell: 20, draw: d => {
+  ingot: { name: "鉄塊", w: 18, h: 9, shape: "rect", draw: d => {
     d.r(2, 0, 14, 3, "#8e949e"); d.r(0, 3, 18, 6, "#6e747e"); d.r(1, 3, 16, 1, "#9ca2ac"); d.r(0, 8, 18, 1, "#50555e");
     d.r(4, 1, 5, 1, "#b0b6c0"); d.p(5, 5, "#5a5f68"); d.p(9, 6, "#5a5f68"); d.p(13, 5, "#5a5f68"); d.p(11, 1, "#7a808a"); } },
-  tonic: { name: "薬草水", w: 11, h: 16, shape: "rect", sell: 14, draw: (d, w, h) => { bottle(d, w, h, "#8ac070", 8); d.p(4, 12, "#4f8a43"); d.p(6, 13, "#4f8a43"); } },
-  healing: { name: "回復薬", w: 12, h: 17, shape: "rect", sell: 40, draw: (d, w, h) => { bottle(d, w, h, "#d84a5a", 10, "#c89058"); d.r(5, 12, 2, 1, "#ffb0b8"); } },
-  mana: { name: "魔力の薬", w: 12, h: 17, shape: "rect", sell: 120, draw: (d, w, h) => { bottle(d, w, h, "#4a6ad8", 10, "#c89058"); d.p(4, 11, "#c0d0ff"); d.p(7, 13, "#c0d0ff"); d.p(6, 9, "#ffffff"); } },
-  elixir: { name: "エリクサー", w: 13, h: 20, shape: "rect", sell: 400, draw: (d, w, h) => {
+  tonic: { name: "薬草水", w: 11, h: 16, shape: "rect", draw: (d, w, h) => { bottle(d, w, h, "#8ac070", 8); d.p(4, 12, "#4f8a43"); d.p(6, 13, "#4f8a43"); } },
+  healing: { name: "回復薬", w: 12, h: 17, shape: "rect", draw: (d, w, h) => { bottle(d, w, h, "#d84a5a", 10, "#c89058"); d.r(5, 12, 2, 1, "#ffb0b8"); } },
+  mana: { name: "魔力の薬", w: 12, h: 17, shape: "rect", draw: (d, w, h) => { bottle(d, w, h, "#4a6ad8", 10, "#c89058"); d.p(4, 11, "#c0d0ff"); d.p(7, 13, "#c0d0ff"); d.p(6, 9, "#ffffff"); } },
+  elixir: { name: "エリクサー", w: 13, h: 20, shape: "rect", draw: (d, w, h) => {
     bottle(d, w, h, "#f0b030", 12, "#e8b84a"); d.r(4, 2, 5, 1, "#e8b84a"); d.p(5, 12, "#fff0b0"); d.p(8, 15, "#fff0b0"); d.p(6, 17, "#ffffff"); } },
-  cinnabar: { name: "辰砂", w: 13, h: 11, shape: "rect", sell: 45, draw: d => {
+  cinnabar: { name: "辰砂", w: 13, h: 11, shape: "rect", draw: d => {
     d.ell(6.5, 8.5, 6.5, 2.5, "#6a4a40"); d.r(1, 8, 11, 1, "#7a5a4e");
     d.r(2, 3, 3, 6, "#c83a2a"); d.r(2, 3, 1, 6, "#e8604a"); d.p(3, 2, "#c83a2a");
     d.r(5, 0, 4, 9, "#b02a20"); d.r(5, 0, 2, 9, "#e04a36"); d.p(6, 0, "#ff9a80");
     d.r(9, 4, 3, 5, "#c83a2a"); d.r(9, 4, 1, 5, "#e8604a"); d.p(10, 3, "#c83a2a"); } },
-  tria: { name: "三原質の結晶", w: 14, h: 16, shape: "rect", sell: 110, draw: d => {
+  tria: { name: "三原質の結晶", w: 14, h: 16, shape: "rect", draw: d => {
     d.r(3, 0, 8, 16, "#e8e0d0"); d.r(1, 3, 12, 10, "#e8e0d0"); d.r(1, 3, 4, 10, "#d84a4a"); d.r(9, 3, 4, 10, "#e8d040"); d.r(3, 0, 2, 3, "#d84a4a"); d.r(9, 0, 2, 3, "#e8d040");
     d.r(9, 13, 2, 3, "#e8d040"); d.r(3, 13, 2, 3, "#d84a4a"); d.r(6, 2, 2, 5, "#ffffff"); } },
-  furnace: { name: "錬金炉", w: 30, h: 32, shape: "rect", sell: 60, tool: true, frames: 3, draw: (d, w, h, f) => {
+  furnace: { name: "錬金炉", w: 30, h: 32, shape: "rect", tool: true, frames: 3, draw: (d, w, h, f) => {
     d.r(20, 0, 6, 8, "#8a3a28"); d.r(20, 0, 6, 1, "#b0503a"); d.r(19, 0, 8, 1, "#6a2a1c");
     d.r(0, 8, 30, 24, "#b0503a"); d.r(0, 8, 30, 1, "#c86a50");
     for (let y = 8; y < 32; y += 4) { d.r(0, y, 30, 1, "#8a3a28"); for (let x = (y / 4) % 2 ? 0 : 4; x < 30; x += 8) d.r(x, y + 1, 1, 3, "#8a3a28"); }
@@ -499,88 +511,88 @@ const THINGS = {
     d.ell(15, 24, 6, 5 - (f === 2 ? 1 : 0), "#e86a30"); d.ell(15 + [0, 1, -1][f] * 0.5, 25, 3.5, 3, "#f8c050"); d.ell(15, 26, 1.5, 1.5, "#fff0a0");
     d.r(0, 30, 30, 2, "#6a2a1c"); d.p(23, [-1, 0, 0][f] < 0 ? 0 : 0, "#8a8a96");
     if (f === 1) { d.p(22, 0, "#9a9aa6"); } if (f === 2) { d.p(24, 0, "#9a9aa6"); } } },
-  redPowder: { name: "赤の粉末", w: 14, h: 12, shape: "rect", sell: 300, draw: d => {
+  redPowder: { name: "赤の粉末", w: 14, h: 12, shape: "rect", draw: d => {
     d.ell(7, 9, 7, 3, "#d8dce8"); d.ell(7, 8.5, 5.5, 2, "#b8bccc"); d.ell(7, 6.5, 4.5, 4, "#d0303a"); d.ell(6, 5, 2, 1.5, "#ff6a70"); d.p(9, 7, "#901820"); } },
-  philosopherStone: { name: "賢者の石", w: 14, h: 14, shape: "circle", sell: 2500, tool: true, draw: d => {
+  philosopherStone: { name: "賢者の石", w: 14, h: 14, shape: "circle", tool: true, draw: d => {
     d.ell(7, 7, 7, 7, "#a0102e"); d.ell(7, 7, 5.5, 5.5, "#e01848"); d.r(3, 6, 8, 2, "#c01038"); d.r(6, 3, 2, 8, "#c01038");
     d.ell(5, 5, 2, 1.5, "#ff8aa0"); d.p(4, 4, "#ffffff"); d.p(10, 10, "#700820"); } },
-  silver: { name: "銀塊", w: 18, h: 9, shape: "rect", sell: 600, draw: d => {
+  silver: { name: "銀塊", w: 18, h: 9, shape: "rect", draw: d => {
     d.r(2, 0, 14, 3, "#f4f6fc"); d.r(0, 3, 18, 6, "#d4dae8"); d.r(1, 3, 16, 1, "#ffffff"); d.r(0, 8, 18, 1, "#9aa4bc");
     d.r(7, 4, 4, 3, "#b4c0dc"); d.p(9, 4, "#ffffff"); d.p(8, 5, "#ffffff"); d.p(10, 5, "#8c98b8"); d.p(9, 6, "#8c98b8");
     d.r(3, 1, 6, 1, "#ffffff"); d.r(14, 5, 2, 1, "#e8f0ff"); } },
-  gold: { name: "金塊", w: 18, h: 9, shape: "rect", sell: 1500, draw: d => {
+  gold: { name: "金塊", w: 18, h: 9, shape: "rect", draw: d => {
     d.r(2, 0, 14, 3, "#ffe070"); d.r(0, 3, 18, 6, "#f0b830"); d.r(1, 3, 16, 1, "#fff0a8"); d.r(0, 8, 18, 1, "#b88018"); d.r(4, 1, 6, 1, "#ffffff"); d.r(12, 5, 3, 1, "#fff8d0"); } },
-  crown: { name: "黄金の冠", w: 22, h: 14, shape: "rect", sell: 5000, draw: d => {
+  crown: { name: "黄金の冠", w: 22, h: 14, shape: "rect", draw: d => {
     d.r(1, 7, 20, 7, "#f0b830"); d.r(1, 12, 20, 2, "#b88018");
     for (const [x, top] of [[1, 3], [5, 1], [10, 0], [15, 1], [19, 3]]) { d.r(x, top + 1, 2, 7 - top, "#f0b830"); d.p(x, top, "#ffe070"); d.p(x + 1, top, "#ffe070"); }
     d.r(2, 7, 18, 1, "#fff0a8"); d.r(1, 10, 20, 1, "#d89a20");
     d.r(4, 8, 2, 2, "#d0303a"); d.r(10, 8, 2, 2, "#3a6ad8"); d.r(16, 8, 2, 2, "#30a050"); d.p(4, 8, "#ff9aa0"); d.p(10, 8, "#a0c0ff"); d.p(16, 8, "#a0f0b0"); } },
-  sword: { name: "鉄の剣", w: 34, h: 7, shape: "rect", sell: 60, draw: d => {
+  sword: { name: "鉄の剣", w: 34, h: 7, shape: "rect", draw: d => {
     d.r(0, 2, 6, 3, "#8a5a30"); d.r(1, 3, 4, 1, "#6a4220"); d.r(0, 2, 1, 3, "#c8a050"); d.r(6, 0, 2, 7, "#c8a050"); d.p(6, 0, "#f0d070");
     d.r(8, 2, 23, 3, "#b8bec8"); d.r(8, 2, 23, 1, "#e0e4ec"); d.r(9, 3, 19, 1, "#9aa0aa"); d.r(31, 3, 2, 1, "#b8bec8"); d.p(31, 2, "#e0e4ec"); } },
-  mirror: { name: "鏡", w: 16, h: 20, shape: "rect", sell: 50, draw: d => {
+  mirror: { name: "鏡", w: 16, h: 20, shape: "rect", draw: d => {
     d.ell(8, 9, 8, 9, "#a8acb8"); d.ell(8, 9, 6, 7, "#c8e0f0"); d.r(4, 4, 2, 6, "#ffffff"); d.r(6, 18, 4, 2, "#a8acb8"); d.p(10, 12, "#8ab0d0"); } },
-  crystalBall: { name: "水晶玉", w: 20, h: 20, shape: "circle", sell: 450, frames: 2, draw: (d, w, h, f) => {
+  crystalBall: { name: "水晶玉", w: 20, h: 20, shape: "circle", frames: 2, draw: (d, w, h, f) => {
     d.r(5, 16, 10, 4, "#8a5a30"); d.r(5, 16, 10, 1, "#a87240"); d.r(4, 18, 12, 2, "#6a4220");
     d.ell(10, 9, 9, 9, "#6a4ab0"); d.ell(10, 9, 7.5, 7.5, "#9a7ae0");
     if (f) { d.ell(9, 11, 4, 3, "#c8b0ff"); d.ell(13, 7, 2, 2, "#e2d2ff"); } else { d.ell(11, 10, 4, 4, "#c8b0ff"); d.ell(8, 12, 1.5, 1.5, "#e2d2ff"); }
     d.ell(7, 5.5, 2, 2, "#ffffff"); d.p(13, 13, "#ffffff"); } },
-  elixirOfLife: { name: "命の霊薬", w: 14, h: 24, shape: "rect", sell: 15000, draw: (d, w, h) => {
+  elixirOfLife: { name: "命の霊薬", w: 14, h: 24, shape: "rect", draw: (d, w, h) => {
     bottle(d, w, h, "#ff7ac8", 15, "#e8b84a"); d.r(4, 2, 6, 1, "#e8b84a"); d.ell(7, 18, 3, 3, "#ffd0f0"); d.p(5, 11, "#ffffff"); d.p(9, 14, "#fff0a0"); d.p(4, 16, "#fff0a0"); } },
-  royalCrown: { name: "王者の宝冠", w: 30, h: 22, shape: "rect", sell: 30000, draw: d => {
+  royalCrown: { name: "王者の宝冠", w: 30, h: 22, shape: "rect", draw: d => {
     d.r(1, 12, 28, 10, "#dfe4ee"); d.r(1, 19, 28, 3, "#a8aec0"); d.r(2, 12, 26, 1, "#ffffff"); d.r(1, 16, 28, 1, "#bcc2d2");
     for (const [x, top] of [[1, 5], [7, 3], [21, 3], [27, 5]]) { d.r(x, top + 1, 2, 12 - top, "#dfe4ee"); d.p(x, top, "#ffffff"); d.p(x + 1, top, "#c8a8ff"); }
     d.r(12, 7, 6, 6, "#dfe4ee");
     d.ell(15, 5.5, 4.5, 4.5, "#6a4ab0"); d.ell(15, 5.5, 3.5, 3.5, "#9a7ae0"); d.ell(14, 4.5, 1.5, 1.5, "#ffffff");
     d.r(4, 14, 3, 3, "#3a6ad8"); d.p(4, 14, "#a0c0ff"); d.r(23, 14, 3, 3, "#30a050"); d.p(23, 14, "#a0f0b0");
     d.r(13, 14, 4, 3, "#e01848"); d.p(13, 14, "#ff9aa0"); d.r(9, 15, 2, 2, "#9a7ae0"); d.r(19, 15, 2, 2, "#9a7ae0"); } },  // ---- 《自然カタログ》 (薬草取り)
-  meraBundle: { name: "メラメラ草の束", w: 14, h: 14, shape: "circle", buy: 6, sell: 3, draw: d => bundle(d, ["#8a2818", "#c04a28", "#f07a3a", "#ffc070"]) },
-  hieBundle: { name: "ヒエヒエ草の束", w: 14, h: 14, shape: "circle", buy: 6, sell: 3, draw: d => bundle(d, ["#245a88", "#3f88c0", "#7ac0e8", "#e0f6ff"]) },
-  swampShroom: { name: "沼キノコ", w: 13, h: 13, shape: "rect", buy: 5, sell: 2.5, draw: d => swampCap(d, 6.5, 0, 6.5, 13) },
-  flagstone: { name: "敷き石", w: 20, h: 8, shape: "rect", buy: 4, sell: 2, draw: d => {
+  meraBundle: { name: "メラメラ草の束", w: 14, h: 14, shape: "circle", draw: d => bundle(d, ["#8a2818", "#c04a28", "#f07a3a", "#ffc070"]) },
+  hieBundle: { name: "ヒエヒエ草の束", w: 14, h: 14, shape: "circle", draw: d => bundle(d, ["#245a88", "#3f88c0", "#7ac0e8", "#e0f6ff"]) },
+  swampShroom: { name: "沼キノコ", w: 13, h: 13, shape: "rect", draw: d => swampCap(d, 6.5, 0, 6.5, 13) },
+  flagstone: { name: "敷き石", w: 20, h: 8, shape: "rect", draw: d => {
     d.r(0, 1, 20, 7, "#7a7a84"); d.r(1, 0, 18, 1, "#8a8a94"); d.r(0, 1, 20, 1, "#a4a4ae"); d.r(0, 7, 20, 1, "#585862");
     d.p(6, 3, "#5a5a64"); d.p(7, 4, "#5a5a64"); d.p(7, 5, "#5a5a64"); d.p(14, 2, "#5a5a64"); d.p(13, 3, "#5a5a64");
     d.p(3, 3, "#b4b4be"); d.p(10, 5, "#9494a0"); d.p(16, 4, "#9494a0"); d.r(16, 6, 3, 1, "#5d8a4e"); d.p(1, 6, "#5d8a4e"); } },
-  shears: { name: "剪定鋏", w: 18, h: 10, shape: "rect", buy: 14, sell: 7, tool: true, draw: d => {
+  shears: { name: "剪定鋏", w: 18, h: 10, shape: "rect", tool: true, draw: d => {
     d.r(0, 0, 6, 4, "#b8402a"); d.r(0, 6, 6, 4, "#b8402a"); d.r(0, 0, 6, 1, "#e07050"); d.r(0, 6, 6, 1, "#e07050"); d.r(1, 3, 4, 1, "#8a2818"); d.r(1, 9, 4, 1, "#8a2818");
     d.r(6, 2, 4, 6, "#8a8f99"); d.r(6, 2, 4, 1, "#b0b5c0"); d.p(8, 5, "#3a3d44");
     d.r(10, 3, 7, 2, "#d8dce4"); d.r(10, 5, 6, 2, "#a8aeb8"); d.p(17, 3, "#d8dce4"); d.r(10, 3, 7, 1, "#f4f6fa"); d.p(16, 6, "#a8aeb8"); } },
-  bone: { name: "何かの骨", w: 20, h: 8, shape: "rect", buy: 3, sell: 1.5, draw: d => {
+  bone: { name: "何かの骨", w: 20, h: 8, shape: "rect", draw: d => {
     d.r(3, 2, 14, 4, "#e8e0c8"); for (const x of [2.5, 17.5]) { d.ell(x, 2.4, 2.5, 2.4, "#e8e0c8"); d.ell(x, 5.6, 2.5, 2.4, "#e8e0c8"); }
     d.r(3, 5, 14, 1, "#c8bea0"); d.r(4, 2, 12, 1, "#fff8e8"); d.p(1, 1, "#fff8e8"); d.p(16, 1, "#fff8e8"); d.p(11, 4, "#a89a78"); d.p(7, 3, "#d8ceb0"); } },
-  stump: { name: "切り株", w: 24, h: 18, shape: "rect", buy: 8, sell: 4, draw: d => stumpArt(d, ["#6a4220", "#8a5a30", "#5a3818", "#c89a68", "#b08050"], false) },
-  hatchet: { name: "手斧", w: 20, h: 12, shape: "rect", sell: 12, tool: true, draw: d => {
+  stump: { name: "切り株", w: 24, h: 18, shape: "rect", draw: d => stumpArt(d, ["#6a4220", "#8a5a30", "#5a3818", "#c89a68", "#b08050"], false) },
+  hatchet: { name: "手斧", w: 20, h: 12, shape: "rect", tool: true, draw: d => {
     d.r(0, 7, 15, 3, "#a87240"); d.r(0, 7, 15, 1, "#c89058"); d.r(0, 9, 15, 1, "#7a5030");
     d.r(13, 1, 4, 10, "#7a7a84"); d.r(16, 0, 4, 12, "#9a9aa4"); d.r(19, 1, 1, 10, "#c8c8d2"); d.r(13, 1, 4, 1, "#a4a4ae"); d.p(15, 4, "#5a5a64");
     d.r(12, 6, 3, 5, "#c8a050"); d.p(13, 7, "#8a6a30"); d.p(13, 9, "#8a6a30"); } },
-  mill: { name: "挽き臼", w: 28, h: 28, shape: "rect", sell: 10, tool: true, draw: d => {
+  mill: { name: "挽き臼", w: 28, h: 28, shape: "rect", tool: true, draw: d => {
     d.r(20, 0, 3, 9, "#a87240"); d.r(20, 0, 1, 9, "#c89058"); d.r(22, 1, 1, 8, "#7a5030");
     d.r(3, 8, 22, 8, "#8a8a94"); d.r(3, 8, 22, 1, "#b4b4be"); d.r(3, 15, 22, 1, "#5a5a64"); d.r(12, 8, 4, 1, "#4a4a54");
     d.r(1, 16, 26, 11, "#7a7a84"); d.r(1, 16, 26, 1, "#a0a0aa"); d.r(1, 25, 26, 2, "#56565f"); d.r(0, 19, 1, 3, "#7a7a84");
     d.r(0, 21, 3, 1, "#585862"); d.p(6, 11, "#6a6a74"); d.p(17, 12, "#6a6a74"); d.p(9, 21, "#62626c"); d.p(20, 22, "#62626c"); d.p(14, 19, "#94949e");
     d.r(0, 27, 5, 1, "#e8e2d0"); d.r(1, 26, 3, 1, "#e8e2d0"); } },
-  boneMeal: { name: "骨粉", w: 12, h: 11, shape: "rect", sell: 4, draw: d => {
+  boneMeal: { name: "骨粉", w: 12, h: 11, shape: "rect", draw: d => {
     d.ell(6, 7.5, 6, 3.5, "#d4ccb4"); d.r(3, 2, 6, 5, "#d4ccb4"); d.r(4, 0, 4, 2, "#e4dcc4"); d.r(3, 2, 6, 1, "#8a7050");
     d.r(4, 7, 4, 1, "#fbf8ee"); d.p(3, 6, "#fbf8ee"); d.p(3, 8, "#fbf8ee"); d.p(8, 6, "#fbf8ee"); d.p(8, 8, "#fbf8ee"); d.r(2, 10, 8, 1, "#b0a888"); } },
-  refinedSalt: { name: "精製塩", w: 13, h: 9, shape: "rect", sell: 9, draw: d => {
+  refinedSalt: { name: "精製塩", w: 13, h: 9, shape: "rect", draw: d => {
     d.ell(6.5, 4, 5, 3.2, "#fafafa"); d.ell(5.5, 3, 2.5, 1.6, "#ffffff"); d.p(4, 4, "#d8e0ec"); d.p(8, 3, "#d8e0ec"); d.p(9, 5, "#d8e0ec");
     d.r(0, 5, 13, 3, "#8a5a30"); d.r(0, 5, 13, 1, "#a87240"); d.r(2, 8, 9, 1, "#6a4220"); } },
-  seaWater: { name: "海水の瓶", w: 11, h: 16, shape: "rect", sell: 14, draw: (d, w, h) => { bottle(d, w, h, "#2a8aa8", 9); d.r(3, 11, 2, 1, "#9ae0f0"); d.r(6, 12, 2, 1, "#9ae0f0"); } },
-  hotWater: { name: "お湯の瓶", w: 10, h: 15, shape: "rect", sell: 5, draw: (d, w, h) => { bottle(d, w, h, "#7ab8e0", 8, "#c04a30"); d.p(4, 10, "#ffffff"); d.p(6, 12, "#ffffff"); d.p(5, 8, "#e8f6ff"); } },
-  hotSpring: { name: "温泉水の瓶", w: 11, h: 16, shape: "rect", sell: 20, draw: (d, w, h) => { bottle(d, w, h, "#c4d488", 9, "#c04a30"); d.p(4, 11, "#f4fcd0"); d.p(7, 13, "#e0c838"); d.p(5, 14, "#e0c838"); } },
-  grownShroom: { name: "育った光るキノコ", w: 20, h: 20, shape: "rect", sell: 12, frames: 2, draw: (d, w, h, f) => {
+  seaWater: { name: "海水の瓶", w: 11, h: 16, shape: "rect", draw: (d, w, h) => { bottle(d, w, h, "#2a8aa8", 9); d.r(3, 11, 2, 1, "#9ae0f0"); d.r(6, 12, 2, 1, "#9ae0f0"); } },
+  hotWater: { name: "お湯の瓶", w: 10, h: 15, shape: "rect", draw: (d, w, h) => { bottle(d, w, h, "#7ab8e0", 8, "#c04a30"); d.p(4, 10, "#ffffff"); d.p(6, 12, "#ffffff"); d.p(5, 8, "#e8f6ff"); } },
+  hotSpring: { name: "温泉水の瓶", w: 11, h: 16, shape: "rect", draw: (d, w, h) => { bottle(d, w, h, "#c4d488", 9, "#c04a30"); d.p(4, 11, "#f4fcd0"); d.p(7, 13, "#e0c838"); d.p(5, 14, "#e0c838"); } },
+  grownShroom: { name: "育った光るキノコ", w: 20, h: 20, shape: "rect", frames: 2, draw: (d, w, h, f) => {
     d.r(1, 18, 18, 2, "#5e3e28"); d.r(9, 9, 3, 10, "#e8e0c8"); d.r(9, 9, 1, 10, "#f8f0d8"); d.r(3, 13, 2, 6, "#e8e0c8"); d.r(15, 12, 2, 7, "#e8e0c8");
     glowCap(d, 4, 12, 4, 3, f); glowCap(d, 16, 11, 4, 3, f); glowCap(d, 10.5, 5.5, 7, 5.5, f);
     if (f) { d.p(6, 2, "#ffffff"); d.p(18, 8, "#ffffff"); } } },
-  grownSwamp: { name: "育った沼キノコ", w: 20, h: 18, shape: "rect", sell: 7, draw: d => {
+  grownSwamp: { name: "育った沼キノコ", w: 20, h: 18, shape: "rect", draw: d => {
     d.r(1, 16, 18, 2, "#4a3a2a"); d.r(2, 15, 3, 1, "#5d8a4e"); d.r(14, 15, 4, 1, "#5d8a4e");
     swampCap(d, 4.5, 7, 4.5, 11); swampCap(d, 15.5, 6, 4.5, 12); swampCap(d, 10, 0, 6.5, 16); } },
-  herbSeed: { name: "薬草の種", w: 9, h: 7, shape: "rect", sell: 4, draw: d => seeds(d, "#8a7a3a", "#b0a050", "#6fae5a") },
-  herbSprout: { name: "薬草の苗", w: 12, h: 14, shape: "rect", sell: 7, draw: d => sprout(d, 12, 14, "#4f8a43", "#8ccc70", "#3f6e35") },
-  grownHerb: { name: "育った薬草", w: 16, h: 20, shape: "rect", sell: 11, draw: d => { bush(d, 0, 0, ["#3f6e35", "#4f8a43", "#6fae5a", "#a8e090"]); d.p(8, 1, "#ffffff"); d.p(3, 6, "#ffffff"); d.p(13, 5, "#ffffff"); } },
-  meraSeed: { name: "メラメラ草の種", w: 9, h: 7, shape: "rect", sell: 5, draw: d => seeds(d, "#9a2a18", "#d04a28", "#ffb060") },
-  meraSprout: { name: "メラメラ草の苗", w: 12, h: 14, shape: "rect", sell: 9, draw: d => sprout(d, 12, 14, "#c04a28", "#f08a40", "#6a3a20") },
-  grownMera: { name: "育ったメラメラ草", w: 20, h: 24, shape: "rect", sell: 16, tool: true, frames: 3, draw: (d, w, h, f) => {
+  herbSeed: { name: "薬草の種", w: 9, h: 7, shape: "rect", draw: d => seeds(d, "#8a7a3a", "#b0a050", "#6fae5a") },
+  herbSprout: { name: "薬草の苗", w: 12, h: 14, shape: "rect", draw: d => sprout(d, 12, 14, "#4f8a43", "#8ccc70", "#3f6e35") },
+  grownHerb: { name: "育った薬草", w: 16, h: 20, shape: "rect", draw: d => { bush(d, 0, 0, ["#3f6e35", "#4f8a43", "#6fae5a", "#a8e090"]); d.p(8, 1, "#ffffff"); d.p(3, 6, "#ffffff"); d.p(13, 5, "#ffffff"); } },
+  meraSeed: { name: "メラメラ草の種", w: 9, h: 7, shape: "rect", draw: d => seeds(d, "#9a2a18", "#d04a28", "#ffb060") },
+  meraSprout: { name: "メラメラ草の苗", w: 12, h: 14, shape: "rect", draw: d => sprout(d, 12, 14, "#c04a28", "#f08a40", "#6a3a20") },
+  grownMera: { name: "育ったメラメラ草", w: 20, h: 24, shape: "rect", tool: true, frames: 3, draw: (d, w, h, f) => {
     // flames lick all around the plant
     const tongues = [[3, 7], [6, 3], [10, 1], [14, 3], [17, 7], [1, 12], [18, 12], [2, 17], [17, 17]];
     tongues.forEach(([x, y], i) => {
@@ -590,12 +602,12 @@ const THINGS = {
     bush(d, 2, 4, ["#6a2a18", "#b03a20", "#d85a2a", "#ffa050"]);
     for (const [x, y] of [[6, 9], [13, 8], [10, 13]]) d.p(x, y, ["#ffe070", "#ffb040", "#fff0a0"][(x + f) % 3]);
     d.p([4, 15, 9][f], [2, 1, 0][f], "#ffd060"); } },
-  hotLiquid: { name: "辛い液体", w: 11, h: 16, shape: "rect", sell: 30, draw: (d, w, h) => { bottle(d, w, h, "#e0502a", 9); d.p(4, 11, "#ffb060"); d.p(6, 13, "#ffb060"); d.p(5, 9, "#ffd8a0"); } },
-  warmPotion: { name: "保温薬", w: 12, h: 17, shape: "rect", sell: 55, draw: (d, w, h) => {
+  hotLiquid: { name: "辛い液体", w: 11, h: 16, shape: "rect", draw: (d, w, h) => { bottle(d, w, h, "#e0502a", 9); d.p(4, 11, "#ffb060"); d.p(6, 13, "#ffb060"); d.p(5, 9, "#ffd8a0"); } },
+  warmPotion: { name: "保温薬", w: 12, h: 17, shape: "rect", draw: (d, w, h) => {
     bottle(d, w, h, "#f08a2a", 10, "#c89058"); d.p(6, 10, "#fff0a0"); d.r(5, 11, 2, 1, "#fff0a0"); d.r(5, 12, 3, 1, "#ffd060"); d.r(5, 13, 2, 1, "#ffd060"); } },
-  hieSeed: { name: "ヒエヒエ草の種", w: 9, h: 7, shape: "rect", sell: 5, draw: d => seeds(d, "#2a6898", "#4a98d0", "#d8f4ff") },
-  hieSprout: { name: "ヒエヒエ草の苗", w: 12, h: 14, shape: "rect", sell: 9, draw: d => sprout(d, 12, 14, "#3a80b8", "#a0d8f4", "#2a5a80") },
-  grownHie: { name: "育ったヒエヒエ草", w: 20, h: 24, shape: "rect", sell: 16, frames: 3, draw: (d, w, h, f) => {
+  hieSeed: { name: "ヒエヒエ草の種", w: 9, h: 7, shape: "rect", draw: d => seeds(d, "#2a6898", "#4a98d0", "#d8f4ff") },
+  hieSprout: { name: "ヒエヒエ草の苗", w: 12, h: 14, shape: "rect", draw: d => sprout(d, 12, 14, "#3a80b8", "#a0d8f4", "#2a5a80") },
+  grownHie: { name: "育ったヒエヒエ草", w: 20, h: 24, shape: "rect", frames: 3, draw: (d, w, h, f) => {
     // a cold haze drifts around the plant and frost glitters on it
     const haze = [[[0, 9, 3], [17, 6, 3], [1, 16, 4], [15, 15, 5]], [[1, 10, 3], [16, 7, 4], [0, 15, 4], [16, 16, 4]], [[0, 8, 4], [17, 8, 3], [2, 17, 3], [15, 14, 5]]][f];
     for (const [x, y, len] of haze) { d.r(x, y, len, 1, "#c8ecfc"); d.p(x + 1, y - 1, "#e8faff"); }
@@ -603,45 +615,45 @@ const THINGS = {
     const spots = [[[3, 5], [11, 2], [17, 3], [6, 14], [14, 17]], [[5, 3], [15, 5], [9, 9], [12, 14], [2, 3]], [[9, 1], [3, 10], [14, 8], [17, 1], [8, 17]]][f];
     for (const [x, y] of spots) { d.p(x, y, "#ffffff"); d.p(x - 1, y, "#d8f4ff"); d.p(x + 1, y, "#d8f4ff"); d.p(x, y - 1, "#d8f4ff"); d.p(x, y + 1, "#d8f4ff"); }
     d.r(3, 23, 14, 1, "#e8faff"); } },
-  ice: { name: "氷", w: 12, h: 11, shape: "rect", sell: 3, draw: d => {
+  ice: { name: "氷", w: 12, h: 11, shape: "rect", draw: d => {
     d.r(0, 3, 9, 8, "#a0dcf8"); d.r(9, 2, 3, 8, "#78bce0"); d.r(1, 1, 10, 2, "#d8f4ff"); d.r(2, 0, 10, 1, "#eafaff"); d.p(11, 1, "#a8d8f0");
     d.r(1, 4, 1, 4, "#ffffff"); d.p(2, 4, "#ffffff"); d.p(5, 7, "#78bce0"); d.p(6, 8, "#78bce0"); d.p(4, 9, "#c8ecfc"); } },
-  bitterLiquid: { name: "渋い液体", w: 11, h: 16, shape: "rect", sell: 26, draw: (d, w, h) => { bottle(d, w, h, "#76763a", 9); d.p(4, 12, "#a8a860"); d.p(6, 10, "#a8a860"); } },
-  coolPotion: { name: "保冷薬", w: 12, h: 17, shape: "rect", sell: 55, draw: (d, w, h) => {
+  bitterLiquid: { name: "渋い液体", w: 11, h: 16, shape: "rect", draw: (d, w, h) => { bottle(d, w, h, "#76763a", 9); d.p(4, 12, "#a8a860"); d.p(6, 10, "#a8a860"); } },
+  coolPotion: { name: "保冷薬", w: 12, h: 17, shape: "rect", draw: (d, w, h) => {
     bottle(d, w, h, "#3ab8e0", 10, "#c89058"); d.p(6, 11, "#ffffff"); d.p(5, 12, "#ffffff"); d.p(7, 12, "#ffffff"); d.p(6, 13, "#ffffff"); d.p(6, 12, "#d8f4ff"); } },
-  secretMedicine: { name: "秘薬", w: 13, h: 20, shape: "rect", sell: 250, draw: (d, w, h) => {
+  secretMedicine: { name: "秘薬", w: 13, h: 20, shape: "rect", draw: (d, w, h) => {
     bottle(d, w, h, "#a070e0", 12, "#e8b84a"); d.r(4, 2, 5, 1, "#e8b84a");
     d.p(4, 13, "#f08a2a"); d.p(5, 14, "#f08a2a"); d.p(4, 15, "#f8b060"); d.p(8, 13, "#3ab8e0"); d.p(7, 15, "#3ab8e0"); d.p(8, 16, "#8ad8f0"); d.p(6, 11, "#ffffff"); d.p(6, 17, "#f0e0ff"); } },
-  treeSeed: { name: "樹木の種", w: 8, h: 10, shape: "rect", sell: 7, draw: d => {
+  treeSeed: { name: "樹木の種", w: 8, h: 10, shape: "rect", draw: d => {
     d.ell(4, 6.5, 3.4, 3.6, "#a87240"); d.ell(3.5, 6, 1.6, 2, "#c89058"); d.p(4, 9, "#7a5030");
     d.ell(4, 3, 4, 2.4, "#6a4220"); d.r(0, 3, 8, 1, "#5a3818"); d.p(2, 2, "#8a5a30"); d.p(5, 2, "#8a5a30"); d.p(4, 0, "#5a3818"); } },
-  treeSprout: { name: "樹木の苗", w: 12, h: 16, shape: "rect", sell: 11, draw: d => sprout(d, 12, 16, "#3f7a3a", "#7cc066", "#6a4220") },
-  youngTree: { name: "未熟な樹木", w: 36, h: 40, shape: "rect", sell: 16, draw: (d, w, h) => tree(d, w, h, TREE_PAL, 0) },
-  grownTree: { name: "育った樹木", w: 44, h: 50, shape: "rect", sell: 22, draw: (d, w, h) => tree(d, w, h, TREE_PAL, 1) },
-  fruitSeed: { name: "果樹の種", w: 8, h: 9, shape: "rect", sell: 12, draw: d => {
+  treeSprout: { name: "樹木の苗", w: 12, h: 16, shape: "rect", draw: d => sprout(d, 12, 16, "#3f7a3a", "#7cc066", "#6a4220") },
+  youngTree: { name: "未熟な樹木", w: 36, h: 40, shape: "rect", draw: (d, w, h) => tree(d, w, h, TREE_PAL, 0) },
+  grownTree: { name: "育った樹木", w: 44, h: 50, shape: "rect", draw: (d, w, h) => tree(d, w, h, TREE_PAL, 1) },
+  fruitSeed: { name: "果樹の種", w: 8, h: 9, shape: "rect", draw: d => {
     d.ell(4, 5.2, 3.5, 3.8, "#c0603e"); d.ell(3.4, 4.6, 2, 2.2, "#e08a62"); d.p(3, 3, "#ffd0b8"); d.p(4, 1, "#8a4a30"); d.p(4, 0, "#6fae5a"); d.p(5, 0, "#6fae5a"); } },
-  fruitSprout: { name: "果樹の苗", w: 12, h: 16, shape: "rect", sell: 17, draw: d => { sprout(d, 12, 16, "#4f8a43", "#9ad87a", "#6a4220"); d.p(6, 0, "#ffb0c8"); d.p(2, 3, "#ffd0e0"); } },
-  youngFruit: { name: "未熟な果樹", w: 36, h: 40, shape: "rect", sell: 24, draw: (d, w, h) => tree(d, w, h, FRUIT_PAL, 0, [[0.3, 0.4], [0.62, 0.3], [0.7, 0.5]], ["#9ac050", "#c8e070"]) },
-  grownFruit: { name: "育った果樹", w: 44, h: 50, shape: "rect", sell: 32, draw: (d, w, h) => tree(d, w, h, FRUIT_PAL, 1,
+  fruitSprout: { name: "果樹の苗", w: 12, h: 16, shape: "rect", draw: d => { sprout(d, 12, 16, "#4f8a43", "#9ad87a", "#6a4220"); d.p(6, 0, "#ffb0c8"); d.p(2, 3, "#ffd0e0"); } },
+  youngFruit: { name: "未熟な果樹", w: 36, h: 40, shape: "rect", draw: (d, w, h) => tree(d, w, h, FRUIT_PAL, 0, [[0.3, 0.4], [0.62, 0.3], [0.7, 0.5]], ["#9ac050", "#c8e070"]) },
+  grownFruit: { name: "育った果樹", w: 44, h: 50, shape: "rect", draw: (d, w, h) => tree(d, w, h, FRUIT_PAL, 1,
     [[0.22, 0.38], [0.36, 0.22], [0.5, 0.42], [0.64, 0.24], [0.78, 0.4], [0.42, 0.55], [0.66, 0.56], [0.28, 0.54]], ["#f0a040", "#fff0a0"]) },
-  pikara: { name: "ピカラの実", w: 10, h: 11, shape: "rect", sell: 9, draw: d => {
+  pikara: { name: "ピカラの実", w: 10, h: 11, shape: "rect", draw: d => {
     d.ell(5, 6.6, 4.8, 4.3, "#f0a040"); d.ell(4.5, 6.2, 3.4, 3, "#f8c860"); d.ell(3.5, 5, 1.5, 1.2, "#fff4c0");
     d.r(5, 0, 1, 3, "#6a4220"); d.ell(7.5, 1.5, 2, 1.1, "#6fae5a"); d.p(7, 9, "#d07a28"); } },
-  worldSeed: { name: "世界樹の種", w: 10, h: 12, shape: "rect", sell: 300, draw: d => {
+  worldSeed: { name: "世界樹の種", w: 10, h: 12, shape: "rect", draw: d => {
     d.ell(5, 7.5, 4.5, 4.5, "#8ac860"); d.ell(5, 5, 2.6, 3, "#8ac860"); d.ell(5, 7.4, 3.2, 3.3, "#d8f4a0"); d.ell(5, 5.4, 1.4, 2, "#d8f4a0");
     d.ell(4, 7, 1.4, 1.6, "#ffffff"); d.p(6, 9, "#fff4a0"); d.r(5, 0, 1, 2, "#b8a070"); d.p(6, 0, "#f0e070"); d.p(3, 10, "#5aa848"); } },
-  worldSprout: { name: "世界樹の苗", w: 14, h: 18, shape: "rect", sell: 320, draw: d => { sprout(d, 14, 18, "#5aa848", "#d8f080", "#b8a070"); d.p(7, 0, "#fffbd8"); d.p(2, 4, "#fff4a0"); d.p(12, 3, "#fff4a0"); } },
-  youngWorld: { name: "未熟な世界樹", w: 44, h: 50, shape: "rect", sell: 360, draw: (d, w, h) => tree(d, w, h, WORLD_PAL, 0, [[0.3, 0.3], [0.6, 0.22], [0.72, 0.42], [0.42, 0.45]], ["#fff4a0", "#ffffff"]) },
-  grownWorld: { name: "育った世界樹", w: 60, h: 66, shape: "rect", sell: 420, frames: 2, draw: (d, w, h, f) => tree(d, w, h, WORLD_PAL, 1,
+  worldSprout: { name: "世界樹の苗", w: 14, h: 18, shape: "rect", draw: d => { sprout(d, 14, 18, "#5aa848", "#d8f080", "#b8a070"); d.p(7, 0, "#fffbd8"); d.p(2, 4, "#fff4a0"); d.p(12, 3, "#fff4a0"); } },
+  youngWorld: { name: "未熟な世界樹", w: 44, h: 50, shape: "rect", draw: (d, w, h) => tree(d, w, h, WORLD_PAL, 0, [[0.3, 0.3], [0.6, 0.22], [0.72, 0.42], [0.42, 0.45]], ["#fff4a0", "#ffffff"]) },
+  grownWorld: { name: "育った世界樹", w: 60, h: 66, shape: "rect", frames: 2, draw: (d, w, h, f) => tree(d, w, h, WORLD_PAL, 1,
     (f ? [[0.2, 0.36], [0.4, 0.16], [0.58, 0.34], [0.76, 0.22], [0.82, 0.44], [0.32, 0.52], [0.62, 0.54], [0.5, 0.26]] : [[0.26, 0.24], [0.46, 0.4], [0.66, 0.16], [0.18, 0.46], [0.74, 0.5], [0.52, 0.56], [0.36, 0.34], [0.86, 0.32]]), ["#fff4a0", "#ffffff"]) },
-  evergreenWood: { name: "常緑の薪", w: 28, h: 9, shape: "rect", sell: 45, draw: d => {
+  evergreenWood: { name: "常緑の薪", w: 28, h: 9, shape: "rect", draw: d => {
     d.r(0, 1, 26, 7, "#4a6a38"); d.r(0, 1, 26, 1, "#6a8a4a"); d.r(0, 7, 26, 1, "#30481f");
     d.r(2, 3, 6, 1, "#30481f"); d.r(12, 4, 7, 1, "#30481f"); d.r(7, 5, 5, 1, "#3a5628"); d.r(20, 2, 4, 1, "#3a5628");
     d.ell(26.5, 4.5, 1.6, 4, "#e0d498"); d.p(26, 4, "#7a9a4a"); d.p(26, 2, "#c8c080");
     d.r(8, 0, 1, 1, "#7cc066"); d.p(9, 0, "#a8e090"); d.r(18, 0, 2, 1, "#7cc066"); d.p(14, 2, "#fff4a0"); } },
-  evergreenStump: { name: "常緑の切り株", w: 24, h: 18, shape: "rect", sell: 120, draw: d => {
+  evergreenStump: { name: "常緑の切り株", w: 24, h: 18, shape: "rect", draw: d => {
     stumpArt(d, ["#4a6a38", "#6a8a4a", "#30481f", "#e0d498", "#c0b070"], true); } },
-  holyFire: { name: "聖火", w: 24, h: 18, shape: "rect", sell: 120, tool: true, frames: 3, draw: (d, w, h, f) => {
+  holyFire: { name: "聖火", w: 24, h: 18, shape: "rect", tool: true, frames: 3, draw: (d, w, h, f) => {
     d.r(1, 14, 22, 3, "#4a6a38"); d.r(1, 14, 22, 1, "#6a8a4a"); d.r(3, 12, 18, 2, "#30481f"); d.r(0, 16, 24, 2, "#24381a");
     d.ell(22.5, 15.5, 1.5, 1.5, "#e0d498"); d.ell(1.5, 15.5, 1.5, 1.5, "#e0d498");
     const sway = [0, 1, -1][f];
@@ -653,7 +665,6 @@ for (const [id, t] of Object.entries(THINGS)) {
   t.id = id;
   t.imgs = Array.from({ length: t.frames || 1 }, (_, f) => art(t.w, t.h, t.draw, f));
   t.img = t.imgs[0];
-  t.sellC = M(t.sell); if (t.buy) t.buyC = M(t.buy);
 }
 // animation speed (frames per second)
 Object.assign(THINGS.campfire, { fps: 4.5 }); Object.assign(THINGS.furnace, { fps: 3.5 });
@@ -762,15 +773,58 @@ const recipeText = r => r.kind === "fuse" ? `${nm(r.a)} ＋ ${nm(r.b)} → ${nm(
   : r.kind === "split" ? `${nm(r.target)} を ${nm(r.tool)} で分解 → ${nm(r.outs[0])} と ${nm(r.outs[1])}`
   : r.kind === "freeze" ? `${nm(r.target)} で凍結 → ${nm(r.out)}`
   : `${nm(r.target)} が吸水 → ${nm(r.out)}`;
+// ---------------------------------------------------------------- prices
+// Every price follows from the recipes: the longer the shortest way to make a thing (到達長 L: catalog things are 0,
+// otherwise 1 + the longest L among the inputs of its best recipe) and the more recipes use it (影響度 I), the dearer.
+//   buy = K × (L + 1)^3 × (1 + 0.15 × I), with K chosen so the 錬金炉 costs 500M.  sell = buy / 2.
+const PRICE_POW = 3, PRICE_USE = 0.15, PRICE_BASE = ["furnace", 500];
+const recipeIns = r => [r.a, r.b, r.target, r.tool].filter(Boolean), recipeOuts = r => r.outs || [r.out];
+const REACH = {}, USES = {};
+{
+  const fromCatalog = new Set(Object.values(SHOP_POOL).flatMap(pool => Object.keys(pool)));
+  for (const id of Object.keys(THINGS)) { REACH[id] = fromCatalog.has(id) ? 0 : Infinity; USES[id] = 0; }
+  for (let changed = true; changed;) {
+    changed = false;
+    for (const r of RECIPES) {
+      const d = 1 + Math.max(...recipeIns(r).map(i => REACH[i]));
+      for (const o of recipeOuts(r)) if (d < REACH[o]) { REACH[o] = d; changed = true; }
+    }
+  }
+  for (const r of RECIPES) for (const i of new Set(recipeIns(r))) USES[i]++;
+  const raw = id => Math.pow(REACH[id] + 1, PRICE_POW) * (1 + PRICE_USE * USES[id]);
+  const K = PRICE_BASE[1] / raw(PRICE_BASE[0]);
+  const nice = v => v < 10 ? Math.round(v * 10) / 10 : (e => Math.round(v / e) * e)(Math.pow(10, Math.floor(Math.log10(v)) - 1));
+  for (const [id, t] of Object.entries(THINGS)) {
+    t.buy = nice(K * raw(id)); t.sell = t.buy / 2;
+    t.buyC = M(t.buy); t.sellC = Math.round(t.buyC / 2);
+  }
+}
 const recipeMakes = (r, id) => r.out === id || (r.outs || []).includes(id);
 const recipeUses = (r, id) => r.a === id || r.b === id || r.target === id || r.tool === id;
+
+// Recipe groups: finding any one recipe of a group counts as finding all of them (the same change by an equivalent tool,
+// or at an equivalent stage). A recipe may belong to several groups.
+const fk = (a, b) => "f:" + pairKey(a, b), ik = (t, tool) => `i:${t}|${tool}`;
+const RECIPE_GROUPS = [
+  ...["sand", "clay", "ironScrap", "tonic", "water", "hotLiquid"].map(t => [ik(t, "campfire"), ik(t, "furnace")]), // 焚き火 / 錬金炉
+  ["flint", "campfire", "grownMera", "holyFire"].map(f => ik("wood", f)),             // lighting 薪
+  ["flint", "campfire", "grownMera", "holyFire"].map(f => ik("evergreenWood", f)),    // lighting 常緑の薪
+  [fk("treeSeed", "boneMeal"), fk("treeSprout", "boneMeal")],                          // 果樹 from a seed or a seedling
+  [fk("fruitSeed", "secretMedicine"), fk("fruitSprout", "secretMedicine")],            // 世界樹 from a seed or a seedling
+].filter(g => g.length > 1);
+const GROUP_OF = {};
+for (const g of RECIPE_GROUPS) for (const k of g) {
+  if (!RECIPES.some(r => r.key === k)) console.error("recipe group: no such recipe", k);
+  (GROUP_OF[k] ||= new Set()).add(k); for (const o of g) GROUP_OF[k].add(o);
+}
+const withGroup = k => GROUP_OF[k] ? [...GROUP_OF[k]] : [k];
 
 // ---------------------------------------------------------------- encyclopedia data (kept across "もう一度遊ぶ")
 const BOOK_KEY = "Alchemillion.book.v1";
 const book = (() => {
   try {
     const d = JSON.parse(localStorage.getItem(BOOK_KEY) || "null");
-    return { things: new Set((d?.things || []).filter(id => THINGS[id])), recipes: new Set((d?.recipes || []).filter(k => RECIPES.some(r => r.key === k))) };
+    return { things: new Set((d?.things || []).filter(id => THINGS[id])), recipes: new Set((d?.recipes || []).filter(k => RECIPES.some(r => r.key === k)).flatMap(withGroup)) };
   } catch (e) { return { things: new Set(), recipes: new Set() }; }
 })();
 function saveBook() { try { localStorage.setItem(BOOK_KEY, JSON.stringify({ things: [...book.things], recipes: [...book.recipes] })); } catch (e) {} }
@@ -836,7 +890,7 @@ const SELL_ZONE_Y = LAB_H + 6; // taps at or below this line open the floor
 let S; // everything that is saved
 function freshState() {
   return {
-    balance: M(50), catalog: [], shop: "tool", shopCatalogs: {}, allied: ["tool"], portalX: LAB_W / 2, things: [], playMs: 0, cleared: false,
+    balance: M(50), catalog: [], shop: "tool", shopCatalogs: {}, allied: ["tool"], extraPool: {}, portalX: LAB_W / 2, things: [], playMs: 0, cleared: false,
     mana: { fire: 0, water: 0, wind: 0, earth: 0, plant: 0, bolt: 0 }, liquid: { n: 0, color: "#9fd4f4" },
     stats: { buyTotal: 0, buyCount: 0, sellTotal: 0, sellCount: 0, maxOnBoard: 0, best: null, minBalance: M(50) },
   };
@@ -859,8 +913,17 @@ function pickWeighted(entries) {
   for (const [id, w] of entries) { r -= w; if (r <= 0) return id; }
   return entries[0][0];
 }
+// A shop's list is its base list plus whatever was added to it later in the game (S.extraPool[shop] = { id: weight }).
+const poolOf = shop => ({ ...(SHOP_POOL[shop] || CATALOG_POOL), ...(S?.extraPool?.[shop] || {}) });
+const inAnyCatalog = id => SHOPS.some(sh => poolOf(sh.id)[id]);
+// For later (requests, friendship): put a thing into a shop's list from now on.
+function addToCatalog(shop, id, weight = 5) {
+  if (!THINGS[id] || !SHOP_POOL[shop]) return;
+  ((S.extraPool ||= {})[shop] ||= {})[id] = weight;
+  save();
+}
 function randomCatalogThing(around = []) {
-  const pool = Object.entries(SHOP_POOL[S?.shop] || CATALOG_POOL);
+  const pool = Object.entries(poolOf(S?.shop));
   if (around.length && Math.random() < LEAD_CHANCE) {
     const near = new Set(around), leads = [];
     for (const [id, w] of pool) {
@@ -888,7 +951,9 @@ const leaves = [
   Bodies.rectangle(LAB_W / 4, FLOOR_TOP + LEAF_T / 2, LEAF_W, LEAF_T, { ...wallOpts, label: "floor" }),
   Bodies.rectangle(LAB_W * 3 / 4, FLOOR_TOP + LEAF_T / 2, LEAF_W, LEAF_T, { ...wallOpts, label: "floor" }),
 ];
-Composite.add(world, leaves);
+// a plank under the seam where the two leaves meet, so small things cannot slip between them (out of the way while the floor is open)
+const seam = Bodies.rectangle(LAB_W / 2, FLOOR_TOP + LEAF_T / 2 + 1, 24, LEAF_T, { ...wallOpts, label: "floor" });
+Composite.add(world, [...leaves, seam]);
 let doorAngle = 0; // 0 = closed, PI/2 = hanging straight down
 function setDoors(a) {
   doorAngle = a;
@@ -901,7 +966,7 @@ function setDoors(a) {
 let bulk = null; // { phase: "opening" | "open" | "closing", t, count, total }
 function startBulkSale() {
   if (bulk || S.cleared) return;
-  bulk = { phase: "opening", t: 0, count: 0, total: 0 };
+  bulk = { phase: "opening", t: 0, count: 0, total: 0 }; seam.isSensor = true;
   sfx.doors();
   if (S.liquid.n) { gainMana("water", S.liquid.n, LAB_W / 2, FLOOR_TOP - liquidHeight() - 8); drainFrom = liquidHeight(); drainT = 0; S.liquid.n = 0; }
 }
@@ -917,7 +982,7 @@ function updateBulk(dt) {
   } else {
     setDoors((1 - ease(Math.min(1, bulk.t / DUR))) * Math.PI / 2);
     if (bulk.t >= DUR) {
-      setDoors(0); sfx.shut();
+      setDoors(0); seam.isSensor = false; sfx.shut();
       if (bulk.count) toast(`一括売却　${bulk.count}個　＋${fmt(bulk.total)}M`, "bulk");
       bulk = null; save();
     }
@@ -1029,9 +1094,11 @@ function resolveReactions() {
       used.add(target);
       const { x, y } = target.position, pl = (target.plus || 0) + (tool.plus || 0), bottom = target.bounds.max.y;
       removeItem(target);
-      // the two pieces stand side by side, upright, on the spot where it stood
-      const [c, e] = r.outs.map(id => THINGS[id]), left = x - (c.w + e.w + 1) / 2;
-      [[c, left + c.w / 2], [e, left + c.w + 1 + e.w / 2]].forEach(([t, cx]) => {
+      // the two pieces stand side by side, upright, on the spot where it stood; the second one listed in the recipe
+      // comes out on the side of the thing that stays (so a 薪 cut off by a 手斧 lands next to the 手斧)
+      const [c, e] = r.outs.map(id => THINGS[id]), toolLeft = tool.position.x < x;
+      const [l, rr] = toolLeft ? [e, c] : [c, e], left = x - (l.w + rr.w + 1) / 2;
+      [[l, left + l.w / 2], [rr, left + l.w + 1 + rr.w / 2]].forEach(([t, cx]) => {
         const n = spawn(t.id, clampX(cx, t.w), Math.min(bottom, FLOOR_TOP) - t.h / 2 - 0.5, 0, null, pl);
         n.calm = now + CALM_MS; used.add(n);
       });
@@ -1099,8 +1166,12 @@ function drawSplashes(dt) {
 }
 function announce(r, kind) {
   const isNew = !book.recipes.has(r.key);
-  if (isNew) { book.recipes.add(r.key); saveBook(); }
-  if (isNew) { toast(`新しいレシピ！ ${recipeText(r)}`, "new"); sfx.discover(); }
+  if (isNew) {
+    const more = withGroup(r.key).filter(k => !book.recipes.has(k));
+    for (const k of more) book.recipes.add(k);
+    saveBook();
+    toast(`新しいレシピ！ ${recipeText(r)}${more.length > 1 ? `（関連レシピ ${more.length - 1} 件も判明）` : ""}`, "new"); sfx.discover();
+  }
   else { toast(recipeText(r), "react"); kind === "fuse" || kind === "split" ? sfx.fuse() : sfx.improve(); }
 }
 
@@ -1222,9 +1293,36 @@ for (let i = 0; i < 6; i++) {
   const b = document.createElement("button");
   b.type = "button"; b.className = "card";
   b.innerHTML = `<canvas width="40" height="40"></canvas><span class="nm"></span><span class="pr"></span><span class="plus" hidden></span>`;
-  b.addEventListener("click", () => buy(i));
+  b.innerHTML += `<span class="pin">固定</span>`;
+  // a long press makes the slot the fixed slot (or takes the fixed slot away); a short tap buys
+  let hold = null;
+  const cancel = () => { if (hold) { clearTimeout(hold.timer); hold = null; b.classList.remove("holding"); } };
+  b.addEventListener("pointerdown", e => {
+    if (e.button > 0) return;
+    b.longDone = false; cancel();
+    hold = { x: e.clientX, y: e.clientY, timer: setTimeout(() => { hold = null; b.classList.remove("holding"); b.longDone = true; toggleFixed(i); }, HOLD_MS) };
+    b.classList.add("holding");
+  });
+  b.addEventListener("pointermove", e => { if (hold && Math.hypot(e.clientX - hold.x, e.clientY - hold.y) > 10 * uiScale) cancel(); });
+  for (const ev of ["pointerup", "pointercancel", "pointerleave"]) b.addEventListener(ev, cancel);
+  b.addEventListener("contextmenu", e => e.preventDefault());
+  b.addEventListener("click", () => { if (b.longDone) { b.longDone = false; return; } buy(i); });
   catalogEl.append(b); cards.push(b);
 }
+const HOLD_MS = 500;
+const priceOf = e => THINGS[e.t].buyC * plusMul(e.p) * (e.f ? 2 : 1); // the fixed slot sells at double the price
+function toggleFixed(i) {
+  if (gathering || S.cleared) return;
+  const e = S.catalog[i], anim = Array(6).fill(null);
+  if (e.f) { delete e.f; removeSlot(i, anim); } // the fixed slot goes away altogether
+  else {
+    const old = S.catalog.findIndex(x => x.f);
+    S.catalog[i] = { ...e, f: true };
+    if (old >= 0) { delete S.catalog[old].f; removeSlot(old, anim); } // the old one goes away (it does not return to a normal slot)
+  }
+  sfx.ui(); renderCatalog(anim); save(); checkGather();
+}
+function renderAfford() { cards.forEach((c, i) => { const e = S.catalog[i]; c.classList.toggle("poor", !!e && S.balance < priceOf(e)); }); }
 // Icons fill their box (so a whole series of bottles or bars shows at about the same size), drawn at device
 // resolution. The scale may be fractional; on dense screens the uneven dots cannot be seen.
 function iconOf(type, cv, css = cv.clientWidth || 40) {
@@ -1238,21 +1336,25 @@ function iconOf(type, cv, css = cv.clientWidth || 40) {
 }
 function renderCatalog(anim) {
   cards.forEach((c, i) => {
-    const e = S.catalog[i], t = THINGS[e.t], price = t.buyC * plusMul(e.p);
+    const e = S.catalog[i], t = THINGS[e.t], price = priceOf(e);
+    c.classList.toggle("fixed", !!e.f);
     if (!book.things.has(t.id)) { book.things.add(t.id); saveBook(); }
     iconOf(t.id, c.querySelector("canvas"));
     c.querySelector(".nm").textContent = t.name;
     c.querySelector(".pr").textContent = fmt(price) + "M";
     const pl = c.querySelector(".plus"); pl.hidden = !e.p; pl.textContent = `+${e.p}`;
     c.classList.remove("gather"); c.style.transform = "";
-    c.setAttribute("aria-label", `${t.name}${e.p ? " +" + e.p : ""}を買う（${fmt(price)}マニ）`);
+    c.setAttribute("aria-label", `${e.f ? "固定枠：" : ""}${t.name}${e.p ? " +" + e.p : ""}を買う（${fmt(price)}マニ）`);
     c.classList.remove("slide-l", "slide-r", "fresh");
     if (anim && anim[i]) { void c.offsetWidth; c.classList.add(anim[i]); }
   });
+  renderAfford();
 }
-// Take slot i out of the catalog: the nearer end shifts in and gets a new thing.
+// Take slot i out of the catalog: the nearer end shifts in and gets a new thing. With a fixed slot, the refill comes
+// from the side away from it, so the fixed slot never moves.
 function removeSlot(i, anim) {
-  if (i <= 2) {
+  const f = S.catalog.findIndex((e, k) => e.f && k !== i);
+  if (f >= 0 ? f > i : i <= 2) {
     for (let k = i; k > 0; k--) { S.catalog[k] = S.catalog[k - 1]; anim[k] = "slide-l"; }
     S.catalog[0] = newEntry(); anim[0] = "fresh";
   } else {
@@ -1265,7 +1367,7 @@ let gathering = false;
 function checkGather() {
   if (gathering) return;
   const groups = {};
-  S.catalog.forEach((e, i) => (groups[`${e.t}|${e.p}`] ||= []).push(i));
+  S.catalog.forEach((e, i) => { if (!e.f) (groups[`${e.t}|${e.p}`] ||= []).push(i); }); // the fixed slot does not gather
   const idx = Object.values(groups).find(g => g.length >= 4);
   if (!idx) return;
   const four = idx.slice(0, 4), keep = four[Math.round((four.length - 1) / 2)];
@@ -1291,15 +1393,16 @@ function checkGather() {
 function buy(i) {
   if (S.cleared || gathering) return;
   audioInit();
-  if (portalBlocked().blocked || bulk) { sfx.blocked(); const c = cards[i]; c.classList.remove("nope"); void c.offsetWidth; c.classList.add("nope"); return; }
-  const { t: type, p: plus } = S.catalog[i], t = THINGS[type], price = t.buyC * plusMul(plus);
+  const entry = S.catalog[i], price = priceOf(entry);
+  if (portalBlocked().blocked || bulk || S.balance < price) { sfx.blocked(); const c = cards[i]; c.classList.remove("nope"); void c.offsetWidth; c.classList.add("nope"); return; }
+  const { t: type, p: plus } = entry, t = THINGS[type];
   S.balance -= price;
   S.stats.buyTotal += price; S.stats.buyCount++;
   S.stats.minBalance = Math.min(S.stats.minBalance, S.balance);
   const x = Math.max(t.w / 2 + 1, Math.min(LAB_W - t.w / 2 - 1, S.portalX));
   spawn(type, x, PORTAL_Y + t.h / 2 - 2, 0, null, plus);
   const anim = Array(6).fill(null);
-  removeSlot(i, anim);
+  if (!entry.f) removeSlot(i, anim); // the fixed slot stays and can be bought again
   sfx.buy();
   renderCatalog(anim); renderBalance(); save();
   checkGather();
@@ -1354,11 +1457,6 @@ lab.addEventListener("pointerdown", e => {
 lab.addEventListener("pointermove", e => {
   if (!press || e.pointerId !== press.id) return;
   const dx = e.clientX - press.x0;
-  // a swipe inwards that started on an edge strip opens that side's panel instead of moving the portal
-  if (!press.drag && press.edge && ((press.edge === "ally" && dx > 6) || (press.edge === "boon" && dx < -6))) {
-    if (Math.abs(dx) > 24 * uiScale) { const which = press.edge; press = null; openDrawer(which); }
-    return;
-  }
   if (!press.drag && Math.abs(dx) > 6) press.drag = true;
   if (press.drag) {
     const r = lab.getBoundingClientRect();
@@ -1418,7 +1516,7 @@ const balanceEl = document.getElementById("balance"), noticeEl = document.getEle
 function renderBalance() {
   balanceEl.innerHTML = `${fmt(S.balance)}<small>M</small>`;
   balanceEl.classList.toggle("minus", S.balance < 0);
-  renderShops();
+  renderShops(); renderAfford();
 }
 const toastsEl = document.getElementById("toasts");
 function toast(text, kind) {
@@ -1427,6 +1525,15 @@ function toast(text, kind) {
   toastsEl.prepend(el);
   while (toastsEl.children.length > 3) toastsEl.lastChild.remove();
   setTimeout(() => el.remove(), 2300);
+}
+// count-up timer of the play time: minutes and seconds, stopping at 99:59
+const timerEl = document.getElementById("timer");
+let lastSec = -1;
+function updateTimer() {
+  const sec = Math.min(99 * 60 + 59, Math.floor((S?.playMs || 0) / 1000));
+  if (sec === lastSec) return;
+  lastSec = sec;
+  timerEl.textContent = `${String(Math.floor(sec / 60)).padStart(2, "0")}:${String(sec % 60).padStart(2, "0")}`;
 }
 let lastHud = "";
 function updateHud() {
@@ -1643,7 +1750,7 @@ function frame(now) {
   updateBulk(dtMs / 1000);
   updateLiquid(dtMs / 1000); updateSteam(dtMs / 1000);
   render(now / 1000, dtMs / 1000);
-  updateHud();
+  updateHud(); updateTimer();
   requestAnimationFrame(frame);
 }
 
@@ -1691,13 +1798,13 @@ function renderBook() {
   const t = THINGS[bookSel];
   if (!book.things.has(bookSel)) { add("div", "？？？", "bname"); add("p", "まだ見つけていないモノ。", "hintline"); return; }
   add("div", t.name + (t.tool ? "（道具）" : ""), "bname");
-  add("div", (t.buy ? `買値 ${fmt(t.buyC)}M　` : "カタログには並ばない　") + `売値 ${fmt(t.sellC)}M`, "bprice");
+  add("div", (inAnyCatalog(t.id) ? `買値 ${fmt(t.buyC)}M　` : "カタログには並ばない　") + `売値 ${fmt(t.sellC)}M`, "bprice");
   const known = RECIPES.filter(r => book.recipes.has(r.key));
   const made = known.filter(r => recipeMakes(r, bookSel));
   const uses = known.filter(r => recipeUses(r, bookSel));
   const hidden = RECIPES.filter(r => !book.recipes.has(r.key) && recipeUses(r, bookSel)).length;
   if (made.length) { add("h3", "作り方"); const ul = add("ul", ""); for (const r of made) { const li = document.createElement("li"); li.textContent = recipeText(r); ul.append(li); } }
-  else if (!t.buy) add("p", "作り方はまだ分からない。", "hintline");
+  else if (!inAnyCatalog(t.id)) add("p", "作り方はまだ分からない。", "hintline");
   add("h3", "使い道");
   if (uses.length) { const ul = add("ul", ""); for (const r of uses) { const li = document.createElement("li"); li.textContent = recipeText(r); ul.append(li); } }
   add("p", hidden ? `まだ知らない使い道が ${hidden} つあるようだ。` : uses.length ? "使い道はこれで全部。" : "反応するモノはないようだ。", "hintline");
@@ -1712,6 +1819,12 @@ function fmtTime(ms) {
   const s = Math.floor(ms / 1000), h = Math.floor(s / 3600), m = Math.floor(s % 3600 / 60), sec = s % 60;
   return h ? `${h}時間${m}分${sec}秒` : `${m}分${sec}秒`;
 }
+// a small trophy for a quick clear (provisional limits): under 30 min gold, under 45 silver, under 60 bronze
+const TROPHIES = [[30, "金", ["#f0b830", "#ffe070", "#b88018"]], [45, "銀", ["#c8ccd8", "#f4f6fc", "#8a90a4"]], [60, "銅", ["#c07838", "#e8a868", "#8a4a20"]]];
+const trophyArt = ([c, l, k]) => art(9, 9, d => {
+  d.r(1, 0, 7, 5, c); d.r(1, 0, 7, 1, l); d.p(0, 1, c); d.p(0, 2, c); d.p(8, 1, c); d.p(8, 2, c);
+  d.r(4, 5, 1, 2, k); d.r(2, 7, 5, 1, c); d.r(1, 8, 7, 1, k); d.p(2, 2, "#ffffff"); d.p(6, 4, k);
+}).toDataURL();
 function clear() {
   S.cleared = true; save(); sfx.clear();
   const st = S.stats;
@@ -1725,18 +1838,16 @@ function clear() {
   ];
   const dl = document.getElementById("stats"); dl.innerHTML = "";
   for (const [k, v] of rows) { const dt = document.createElement("dt"), dd = document.createElement("dd"); dt.textContent = k; dd.textContent = v; dl.append(dt, dd); }
+  const tr = TROPHIES.find(([min]) => S.playMs < min * 60000);
+  if (tr) {
+    const img = document.createElement("img");
+    img.className = "trophy"; img.src = trophyArt(tr[2]); img.alt = `${tr[1]}のトロフィー`; img.title = `${tr[1]}のトロフィー（${tr[0]}分未満）`;
+    dl.querySelector("dd").append(img);
+  }
   document.getElementById("result").hidden = false;
   updateHud();
 }
-document.getElementById("againBtn").addEventListener("click", () => {
-  for (const b of [...items]) removeItem(b);
-  S = freshState();
-  S.catalog = freshCatalog();
-  steam.length = 0; drainT = 1;
-  renderCatalog(); renderBalance(); renderMana(); renderShops(); save();
-  document.getElementById("result").hidden = true;
-  lastHud = "";
-});
+document.getElementById("againBtn").addEventListener("click", () => restartGame());
 
 // ---------------------------------------------------------------- options window
 const optEl = document.getElementById("options"), restartBtn = document.getElementById("restartBtn");
@@ -1766,6 +1877,10 @@ document.getElementById("debugMoneyBtn").addEventListener("click", () => {
 restartBtn.addEventListener("click", () => {
   if (!restartBtn.classList.contains("armed")) { restartBtn.classList.add("armed"); restartBtn.textContent = "もう一度押してやり直す"; sfx.ui(); return; }
   closeOptions();
+  restartGame();
+});
+// Back to the opening through a fade (the encyclopedia and the sound setting stay). Used by the options and the result screen.
+function restartGame() {
   const fader = document.getElementById("fader");
   fader.classList.add("on");
   setTimeout(() => {
@@ -1780,7 +1895,7 @@ restartBtn.addEventListener("click", () => {
     document.getElementById("intro").hidden = false;
     fader.classList.remove("on");
   }, 600);
-});
+}
 
 // ---------------------------------------------------------------- save / load (this device)
 const SAVE_KEY = "Alchemillion.save.v1";
@@ -1796,7 +1911,7 @@ function load() {
     const d = JSON.parse(localStorage.getItem(SAVE_KEY) || "null");
     if (!d || !Array.isArray(d.catalog) || d.catalog.length !== 6) return null;
     d.catalog = d.catalog.map(e => typeof e === "string" ? { t: e, p: 0 } : e); // older saves kept plain ids
-    const okCat = c => Array.isArray(c) && c.length === 6 && c.every(e => THINGS[e?.t]?.buy && Number.isInteger(e.p));
+    const okCat = c => Array.isArray(c) && c.length === 6 && c.every(e => THINGS[e?.t] && Number.isInteger(e.p));
     if (!okCat(d.catalog)) return null;
     d.allied = ["tool", ...new Set((Array.isArray(d.allied) ? d.allied : []).filter(k => k !== "tool" && SHOPS.some(sh => sh.id === k)))];
     if (!d.allied.includes(d.shop)) { d.shop = "tool"; d.catalog = okCat(d.shopCatalogs?.tool) ? d.shopCatalogs.tool : d.catalog; }
@@ -1904,7 +2019,7 @@ for (const list of document.querySelectorAll(".slotlist")) {
 }
 
 // Portrait: the strips beside the lab (its own edges, the margin next to it, and the dark border outside the
-// game screen) all open the side panels: tap, or swipe inwards.
+// game screen) all open the side panels with a tap (a drag does not open them).
 let edgePress = null;
 const overlayOpen = () => ["intro", "options", "book", "result"].some(id => !document.getElementById(id).hidden);
 appEl.addEventListener("pointerdown", e => {
@@ -1915,11 +2030,6 @@ appEl.addEventListener("pointerdown", e => {
   const strip = EDGE / LAB_W * r.width;
   const which = e.clientX < r.left + strip ? "ally" : e.clientX > r.right - strip ? "boon" : null;
   if (which) edgePress = { id: e.pointerId, x0: e.clientX, which };
-});
-addEventListener("pointermove", e => {
-  if (!edgePress || e.pointerId !== edgePress.id) return;
-  const dx = e.clientX - edgePress.x0, inward = edgePress.which === "ally" ? dx : -dx;
-  if (inward > 24 * uiScale) { const w = edgePress.which; edgePress = null; openDrawer(w); }
 });
 addEventListener("pointerup", e => {
   if (!edgePress || e.pointerId !== edgePress.id) return;
@@ -1936,8 +2046,10 @@ function start() {
     Object.assign(S, { ...saved, stats: { ...S.stats, ...saved.stats }, mana: { ...S.mana, ...saved.mana }, liquid: { ...S.liquid, ...saved.liquid } });
     for (const it of saved.things || []) if (THINGS[it.t]) spawn(it.t, it.x, it.y, it.a, null, it.p || 0);
     // a catalog saved before its shop had its own list gets the shop's things instead
-    S.catalog = S.catalog.map(e => SHOP_POOL[S.shop][e.t] ? e : newEntry());
-    for (const k of Object.keys(S.shopCatalogs)) if (!S.shopCatalogs[k].every(e => SHOP_POOL[k][e.t])) delete S.shopCatalogs[k];
+    S.catalog = S.catalog.map(e => poolOf(S.shop)[e.t] ? e : newEntry());
+    for (const k of Object.keys(S.shopCatalogs)) if (!S.shopCatalogs[k].every(e => poolOf(k)[e.t])) delete S.shopCatalogs[k];
+    // at most one fixed slot per catalog
+    for (const c of [S.catalog, ...Object.values(S.shopCatalogs)]) c.forEach((e, i) => { if (e.f && c.findIndex(x => x.f) !== i) delete e.f; });
     document.getElementById("intro").hidden = true; running = true;
     if (S.cleared) clear();
   } else {
